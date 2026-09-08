@@ -66,15 +66,23 @@ def db():
             g.db = Database(connection)
     return g.db
 
-locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+try:
+    locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
+except locale.Error:
+    pass
 @app.template_filter('fecha_es')
 
 def fecha_es(fecha):
     if not fecha:
         return ""
+
     if isinstance(fecha, str):
         fecha = datetime.strptime(fecha, "%Y-%m-%d")
-    return fecha.strftime("%A, %-d de %B de %Y").capitalize()
+
+    try:
+        return fecha.strftime("%A, %-d de %B de %Y").capitalize()
+    except ValueError:
+        return fecha.strftime("%A, %d de %B de %Y").capitalize()
 
 @app.teardown_appcontext
 def close_db(_error=None):
