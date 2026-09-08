@@ -4,6 +4,7 @@ import smtplib
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+import locale
 from email.message import EmailMessage
 from functools import wraps
 
@@ -65,6 +66,12 @@ def db():
             g.db = Database(connection)
     return g.db
 
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+@app.template_filter('fecha_es')
+def fecha_es(fecha):
+    if isinstance(fecha, str):
+        fecha = datetime.strptime(fecha, "%Y-%m-%d")
+    return fecha.strftime("%A, %-d de %B de %Y").lower()
 
 @app.teardown_appcontext
 def close_db(_error=None):
