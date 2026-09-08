@@ -134,7 +134,7 @@ def init_db():
         if seeded:
             tomorrow = date.today() + timedelta(days=1)
             data = [
-                ("HYROX", "Clara Moreno", "Un entrenamiento intenso, corto y adictivo para elevar tu energía.", "sábado, 4 de octubre de 2025", "12:30", 45, 12, "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=85"),
+                ("HYROX", "Clara Moreno", "Un entrenamiento intenso, corto y adictivo para elevar tu energía.", "2026-10-04", "12:30", 45, 12, "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=85"),
                 ("Yoga Flow", "Noa Fernández", "Respira, fortalece y recupera el equilibrio con movimientos fluidos.", tomorrow.isoformat(), "18:00", 60, 16, "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=85"),
                 ("Cycle Beat", "Marcos Díaz", "Ritmo, resistencia y una sesión que te hará querer volver mañana.", (tomorrow + timedelta(days=1)).isoformat(), "19:15", 50, 10, "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=1200&q=85"),
             ]
