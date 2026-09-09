@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 import smtplib
@@ -11,17 +12,18 @@ from functools import wraps
 try:
     from dotenv import load_dotenv
 except ImportError:
-    # The app can still run before the optional .env helper is installed.
     def load_dotenv():
         return False
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
 
 try:
     import psycopg
     from psycopg.rows import dict_row
 except ImportError:
     psycopg = None
+
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
 
 load_dotenv()
 
@@ -33,6 +35,26 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
+
+
+def init_firebase_admin():
+    if firebase_admin._apps:
+        return
+    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if service_account_json:
+        cred = credentials.Certificate(json.loads(service_account_json))
+    elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        cred = credentials.ApplicationDefault()
+    else:
+        app.logger.warning(
+            "Firebase Admin no configurado: define FIREBASE_SERVICE_ACCOUNT_JSON "
+            "o GOOGLE_APPLICATION_CREDENTIALS para poder verificar el login."
+        )
+        return
+    firebase_admin.initialize_app(cred)
+
+
+init_firebase_admin()
 
 
 class Database:
@@ -96,7 +118,7 @@ def init_db():
         connection = db()
         if connection.postgres:
             statements = """
-            CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY, firebase_uid TEXT NOT NULL UNIQUE, name TEXT NOT NULL, email TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS classes (id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, trainer TEXT NOT NULL, description TEXT NOT NULL, class_date DATE NOT NULL, class_time TIME NOT NULL, duration INTEGER NOT NULL, capacity INTEGER NOT NULL CHECK(capacity > 0), image_url TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS bookings (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, class_id));
             CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY);
@@ -109,9 +131,9 @@ def init_db():
             PRAGMA foreign_keys = ON;
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                firebase_uid TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                password_hash TEXT NOT NULL,
+                email TEXT NOT NULL COLLATE NOCASE,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS classes (
@@ -134,8 +156,6 @@ def init_db():
             );
             CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY);
             """)
-        # The marker makes demo-data creation safe even when several workers start together.
-        # The count also protects databases created by older local versions.
         class_count = connection.execute("SELECT COUNT(*) AS total FROM classes").fetchone()["total"]
         seeded = None
         if class_count == 0:
@@ -146,15 +166,14 @@ def init_db():
             tomorrow = date.today() + timedelta(days=1)
             data = [
                 ("HYROX", "Clara Moreno", "Un entrenamiento intenso, corto y adictivo para elevar tu energía.", "2026-10-04", "12:30", 45, 12, "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=85"),
-                ("Yoga Flow", "Noa Fernández", "Respira, fortalece y recupera el equilibrio con movimientos fluidos.", "2026-10-04", "18:00", 60, 16, "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=85"),
-                ("Cycle Beat", "Marcos Díaz", "Ritmo, resistencia y una sesión que te hará querer volver mañana.", "2026-10-04", "19:15", 50, 10, "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=1200&q=85"),
+                ("Yoga Flow", "Noa Fernández", "Respira, fortalece y recupera el equilibrio con movimientos fluidos.", tomorrow.isoformat(), "18:00", 60, 16, "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=85"),
+                ("Cycle Beat", "Marcos Díaz", "Ritmo, resistencia y una sesión que te hará querer volver mañana.", (tomorrow + timedelta(days=1)).isoformat(), "19:15", 50, 10, "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=1200&q=85"),
             ]
             connection.executemany("""INSERT INTO classes
                 (title, trainer, description, class_date, class_time, duration, capacity, image_url)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", data)
 
 
-# Gunicorn imports this module rather than running it as __main__.
 init_db()
 
 
@@ -175,8 +194,10 @@ def load_user_and_csrf():
         g.user = db().execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
-    if request.method == "POST" and request.form.get("csrf_token") != session["csrf_token"]:
-        abort(400, "Solicitud no válida. Actualiza la página e inténtalo de nuevo.")
+    if request.method == "POST":
+        token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+        if token != session["csrf_token"]:
+            abort(400, "Solicitud no válida. Actualiza la página e inténtalo de nuevo.")
 
 
 @app.context_processor
@@ -214,40 +235,52 @@ def index():
     return render_template("index.html", classes=classes)
 
 
-@app.route("/registro", methods=["GET", "POST"])
+@app.route("/registro")
 def register():
     if g.user:
         return redirect(url_for("index"))
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-        if len(name) < 2 or "@" not in email or len(password) < 8:
-            flash("Completa los datos: contraseña de al menos 8 caracteres.", "error")
-        else:
-            try:
-                cursor = db().execute("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?) RETURNING id",
-                    (name, email, generate_password_hash(password)))
-                session["user_id"] = cursor.fetchone()["id"]
-                flash("Tu cuenta está lista. ¡Elige tu próxima clase!", "success")
-                return redirect(url_for("index"))
-            except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError):
-                flash("Ya existe una cuenta con este correo.", "error")
     return render_template("auth.html", mode="register")
 
 
-@app.route("/acceder", methods=["GET", "POST"])
+@app.route("/acceder")
 def login():
     if g.user:
         return redirect(url_for("index"))
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        user = db().execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
-            session["user_id"] = user["id"]
-            return redirect(request.args.get("next") or url_for("index"))
-        flash("Correo o contraseña incorrectos.", "error")
     return render_template("auth.html", mode="login")
+
+
+@app.post("/sesion")
+def crear_sesion():
+    payload = request.get_json(silent=True) or {}
+    id_token = payload.get("idToken")
+    if not id_token:
+        abort(400, "Falta el token de Firebase.")
+    try:
+        decoded = firebase_auth.verify_id_token(id_token)
+    except Exception:
+        abort(401, "No se pudo verificar la sesión de Firebase.")
+
+    uid = decoded["uid"]
+    email = (decoded.get("email") or "").strip().lower()
+    name = decoded.get("name") or (email.split("@")[0] if email else "Miembro")
+
+    connection = db()
+    user = connection.execute("SELECT * FROM users WHERE firebase_uid = ?", (uid,)).fetchone()
+    if user:
+        user_id = user["id"]
+        connection.execute("UPDATE users SET name = ?, email = ? WHERE id = ?", (name, email, user_id))
+    else:
+        try:
+            cursor = connection.execute(
+                "INSERT INTO users (firebase_uid, name, email) VALUES (?, ?, ?) RETURNING id",
+                (uid, name, email),
+            )
+            user_id = cursor.fetchone()["id"]
+        except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError):
+            user_id = connection.execute("SELECT id FROM users WHERE firebase_uid = ?", (uid,)).fetchone()["id"]
+
+    session["user_id"] = user_id
+    return {"ok": True}
 
 
 @app.post("/salir")
@@ -261,7 +294,6 @@ def logout():
 @login_required
 def book(class_id):
     connection = db()
-    # IMMEDIATE obtains a write lock before counting, avoiding overselling on concurrent requests.
     connection.execute("BEGIN" if connection.postgres else "BEGIN IMMEDIATE")
     try:
         lock = " FOR UPDATE" if connection.postgres else ""
