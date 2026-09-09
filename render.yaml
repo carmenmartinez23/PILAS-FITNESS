@@ -27,6 +27,8 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
 
 databases:
   - name: fitflow-db

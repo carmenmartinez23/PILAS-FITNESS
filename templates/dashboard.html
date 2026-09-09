@@ -1,1 +1,16 @@
-{% extends 'base.html' %}{% block title %}Mis reservas · FitFlow{% endblock %}{% block content %}<section class="dashboard"><p class="eyebrow">TU AGENDA</p><h1>Hola, {{ g.user['name'].split(' ')[0] }}.<br><em>Nos movemos.</em></h1>{% if bookings %}<div class="booking-list">{% for booking in bookings %}<article><img src="{{ booking['image_url'] }}" alt="{{ booking['title'] }}"><div><span>RESERVA CONFIRMADA</span><h2>{{ booking['title'] }}</h2><p>{{ booking['class_date'] }} · {{ booking['class_time'] }} · {{ booking['duration'] }} min</p><p>{{ booking['trainer'] }}</p></div><b>✓</b></article>{% endfor %}</div>{% else %}<div class="empty"><h2>Aún no tienes clases reservadas.</h2><a class="primary" href="{{ url_for('index') }}#clases">Explorar clases →</a></div>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}{% block title %}Mis reservas · FitFlow{% endblock %}{% block content %}<section
+    class="dashboard">
+    <p class="eyebrow">TU AGENDA</p>
+    <h1>Hola, {{ g.user['name'].split(' ')[0] }}.<br><em>Nos movemos.</em></h1>{% if bookings %}<div
+        class="booking-list">{% for booking in bookings %}<article><img src="{{ booking['image_url'] }}"
+                alt="{{ booking['title'] }}">
+            <div><span>RESERVA CONFIRMADA</span>
+                <h2>{{ booking['title'] }}</h2>
+                <p>{{ booking['class_date'] }} · {{ booking['class_time'] }} · {{ booking['duration'] }} min</p>
+                <p>{{ booking['trainer'] }}</p>
+            </div><b>✓</b>
+        </article>{% endfor %}</div>{% else %}<div class="empty">
+        <h2>Aún no tienes clases reservadas.</h2><a class="primary" href="{{ url_for('index') }}#clases">Explorar clases
+            →</a>
+    </div>{% endif %}
+</section>{% endblock %}

@@ -1,1 +1,26 @@
-{% extends 'base.html' %}{% block title %}{% if mode == 'login' %}Entrar{% else %}Crear cuenta{% endif %} · FitFlow{% endblock %}{% block content %}<section class="auth-page"><div class="auth-photo"><img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=85" alt="Entrenamiento en gimnasio"><p>Tu mejor versión<br><em>empieza hoy.</em></p></div><div class="auth-card"><p class="eyebrow">FITFLOW MEMBER</p><h1>{% if mode == 'login' %}Qué bien verte<br>de nuevo.{% else %}Empieza a<br>moverte.{% endif %}</h1><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if mode == 'register' %}<label>Nombre completo<input name="name" autocomplete="name" required minlength="2" placeholder="Tu nombre"></label>{% endif %}<label>Correo electrónico<input type="email" name="email" autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña<input type="password" name="password" autocomplete="{% if mode == 'login' %}current-password{% else %}new-password{% endif %}" required minlength="8" placeholder="Mínimo 8 caracteres"></label><button class="primary submit">{% if mode == 'login' %}Entrar a mi cuenta{% else %}Crear mi cuenta{% endif %} <b>→</b></button></form><p class="auth-switch">{% if mode == 'login' %}¿Aún no tienes cuenta? <a href="{{ url_for('register') }}">Crear cuenta</a>{% else %}¿Ya eres miembro? <a href="{{ url_for('login') }}">Entrar</a>{% endif %}</p></div></section>{% endblock %}
+{% extends 'base.html' %}{% block title %}{% if mode == 'login' %}Entrar{% else %}Crear cuenta{% endif %} · FitFlow{%
+endblock %}{% block content %}<section class="auth-page">
+    <div class="auth-photo"><img
+            src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=85"
+            alt="Entrenamiento en gimnasio">
+        <p>Tu mejor versión<br><em>empieza hoy.</em></p>
+    </div>
+    <div class="auth-card">
+        <p class="eyebrow">FITFLOW MEMBER</p>
+        <h1>{% if mode == 'login' %}Qué bien verte<br>de nuevo.{% else %}Empieza a<br>moverte.{% endif %}</h1>
+        <p id="auth-error" class="flash error" hidden></p>
+        <form id="auth-form" data-mode="{{ mode }}">{% if mode == 'register'
+            %}<label>Nombre completo<input name="name" autocomplete="name" required minlength="2"
+                    placeholder="Tu nombre"></label>{% endif %}<label>Correo electrónico<input type="email" name="email"
+                    autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña<input
+                    type="password" name="password"
+                    autocomplete="{% if mode == 'login' %}current-password{% else %}new-password{% endif %}" required
+                    minlength="6" placeholder="Mínimo 6 caracteres"></label><button class="primary submit">{% if mode ==
+                'login' %}Entrar a mi cuenta{% else %}Crear mi cuenta{% endif %} <b>→</b></button></form>
+        <p class="auth-switch">{% if mode == 'login' %}¿Aún no tienes cuenta? <a href="{{ url_for('register') }}">Crear
+                cuenta</a>{% else %}¿Ya eres miembro? <a href="{{ url_for('login') }}">Entrar</a>{% endif %}</p>
+        <button type="button" id="google-login" class="google-btn">Entrar con Google</button>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/auth.js') }}"></script>{% endblock %}
