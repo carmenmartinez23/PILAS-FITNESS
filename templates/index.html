@@ -1,9 +1,3 @@
-{% extends 'base.html' %}
-
-{% block title %}FitFlow · Entrena a tu ritmo{% endblock %}
-
-{% block content %}
-
 <section class="hero">
     <div class="hero-copy">
         <p class="eyebrow">TU ENERGÍA, TU RITMO</p>
@@ -73,6 +67,8 @@
         </p>
     </div>
 
+
+    <!-- JavaScript insertará aquí las clases -->
     <div id="class-grid" class="class-grid"></div>
 
 </section>
@@ -94,8 +90,5 @@
 
 </section>
 
-{% endblock %}
 
-{% block scripts %}
-<script type="module" src="{{ url_for('static', filename='classes.js') }}"></script>
-{% endblock %}
+<script type="module" src="/static/js/classes.js"></script>
