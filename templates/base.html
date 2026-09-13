@@ -31,7 +31,7 @@
   {% if g.user %}<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
     import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-    import { firebaseConfig } from "{{ url_for('static', filename='js/firebase-config.js') }}";
+    import { firebaseConfig } from "{{ url_for('static', filename='firebase-config.js') }}";
     const auth = getAuth(initializeApp(firebaseConfig));
     document.getElementById("logout-form").addEventListener("submit", () => { signOut(auth).catch(() => {}); });
   </script>{% endif %}
