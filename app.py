@@ -23,8 +23,8 @@ except ImportError:
     psycopg = None
 
 import firebase_admin
+from firebase_admin import firestore
 from firebase_admin import credentials, auth as firebase_auth
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -395,12 +395,57 @@ def get_classes():
 @app.route("/mis-reservas")
 @login_required
 def dashboard():
-    bookings = db().execute("""
-        SELECT c.*, b.id AS booking_id FROM bookings b JOIN classes c ON c.id = b.class_id
-        WHERE b.user_id = ? ORDER BY c.class_date, c.class_time
-    """, (g.user["id"],)).fetchall()
-    return render_template("dashboard.html", bookings=bookings)
 
+    uid = g.user["firebase_uid"]
 
+    firestore_db = firestore.client()
+
+    bookings_ref = (
+        firestore_db
+        .collection("bookings")
+        .where("userId", "==", uid)
+    )
+
+    booking_documents = bookings_ref.stream()
+
+    bookings = []
+
+    for booking_doc in booking_documents:
+
+        booking_data = booking_doc.to_dict()
+
+        class_id = booking_data.get("classId")
+
+        if not class_id:
+            continue
+
+        class_doc = (
+            firestore_db
+            .collection("classes")
+            .document(class_id)
+            .get()
+        )
+
+        if not class_doc.exists:
+            continue
+
+        class_data = class_doc.to_dict()
+
+        bookings.append({
+            "booking_id": booking_doc.id,
+            **class_data
+        })
+
+    bookings.sort(
+        key=lambda booking: (
+            booking.get("date", ""),
+            booking.get("time", "")
+        )
+    )
+
+    return render_template(
+        "dashboard.html",
+        bookings=bookings
+    )
 if __name__ == "__main__":
     app.run(debug=True)
