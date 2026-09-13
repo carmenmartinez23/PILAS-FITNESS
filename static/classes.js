@@ -1,58 +1,82 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import {
+    getFirestore,
+    collection,
+    getDocs
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+import { firebaseConfig } from "./firebase-config.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 const classGrid = document.getElementById("class-grid");
 
-
 async function loadClasses() {
-
     try {
-
-        const response = await fetch("/api/classes");
-
-        if (!response.ok) {
-            throw new Error("No se pudieron cargar las clases");
-        }
-
-        const classes = await response.json();
+        const snapshot = await getDocs(collection(db, "classes"));
 
         classGrid.innerHTML = "";
 
+        if (snapshot.empty) {
+            classGrid.innerHTML = `
+                <p>No hay clases disponibles actualmente.</p>
+            `;
+            return;
+        }
+
+        const classes = [];
+
+        snapshot.forEach(doc => {
+            classes.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        // Ordenar por fecha y hora
+        classes.sort((a, b) => {
+            const dateA = `${a.date} ${a.time}`;
+            const dateB = `${b.date} ${b.time}`;
+
+            return dateA.localeCompare(dateB);
+        });
+
         classes.forEach(classItem => {
+            const placesLeft =
+                classItem.capacity - classItem.bookedCount;
+
+            const isFull = placesLeft <= 0;
 
             const card = document.createElement("article");
-
             card.className = "class-card";
-
-            const isFull = classItem.places_left === 0;
 
             card.innerHTML = `
                 <img
-                    src="${classItem.image_url}"
+                    src="${classItem.imageUrl}"
                     alt="${classItem.title}"
                 >
 
                 <div class="card-body">
 
                     <div class="card-top">
-
-                        <span>
-                            ${classItem.duration} MIN
-                        </span>
+                        <span>${classItem.duration} MIN</span>
 
                         <span class="availability ${isFull ? "full" : ""}">
-                            ${classItem.places_left} plazas
+                            ${isFull
+                    ? "Clase completa"
+                    : `${placesLeft} plazas`}
                         </span>
-
                     </div>
 
-                    <h3>
-                        ${classItem.title}
-                    </h3>
+                    <h3>${classItem.title}</h3>
 
                     <p>
                         ${classItem.trainer}
                         ·
-                        ${formatDate(classItem.class_date)}
+                        ${formatDate(classItem.date)}
                         ·
-                        ${classItem.class_time}
+                        ${classItem.time}
                     </p>
 
                     <p class="description">
@@ -64,25 +88,21 @@ async function loadClasses() {
                         data-class-id="${classItem.id}"
                         ${isFull ? "disabled" : ""}
                     >
-                        ${
-                            isFull
-                                ? "Clase completa"
-                                : 'Reservar plaza <b>→</b>'
-                        }
+                        ${isFull
+                    ? "Clase completa"
+                    : 'Reservar plaza <b>→</b>'}
                     </button>
 
                 </div>
             `;
 
             classGrid.appendChild(card);
-
         });
 
         addReservationEvents();
 
     } catch (error) {
-
-        console.error(error);
+        console.error("Error cargando las clases:", error);
 
         classGrid.innerHTML = `
             <p>
@@ -93,10 +113,8 @@ async function loadClasses() {
     }
 }
 
-
 function formatDate(dateString) {
-
-    const date = new Date(dateString);
+    const date = new Date(`${dateString}T00:00:00`);
 
     return date.toLocaleDateString("es-ES", {
         day: "2-digit",
@@ -105,61 +123,20 @@ function formatDate(dateString) {
     });
 }
 
-
 function addReservationEvents() {
-
     const buttons = document.querySelectorAll(".reserve");
 
     buttons.forEach(button => {
-
-        button.addEventListener("click", async () => {
-
+        button.addEventListener("click", () => {
             const classId = button.dataset.classId;
 
-            await reserveClass(classId);
-
+            reserveClass(classId);
         });
-
     });
 }
 
-
 async function reserveClass(classId) {
-
-    try {
-
-        const response = await fetch(`/api/classes/${classId}/book`, {
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            }
-        });
-
-
-        const result = await response.json();
-
-
-        if (!response.ok) {
-
-            alert(result.message || "No se pudo realizar la reserva");
-
-            return;
-        }
-
-
-        alert("¡Reserva realizada correctamente!");
-
-        loadClasses();
-
-    } catch (error) {
-
-        console.error(error);
-
-        alert("Ha ocurrido un error al realizar la reserva.");
-
-    }
+    alert("La reserva la conectaremos con Firebase en el siguiente paso.");
 }
-
 
 loadClasses();

@@ -290,37 +290,107 @@ def logout():
     return redirect(url_for("index"))
 
 
-@app.post("/clases/<int:class_id>/reservar")
+@app.post("/api/classes/<int:class_id>/book")
 @login_required
-def book(class_id):
+def book_class(class_id):
     connection = db()
-    connection.execute("BEGIN" if connection.postgres else "BEGIN IMMEDIATE")
+
+    connection.execute(
+        "BEGIN" if connection.postgres else "BEGIN IMMEDIATE"
+    )
+
     try:
         lock = " FOR UPDATE" if connection.postgres else ""
-        fitness_class = connection.execute("SELECT * FROM classes WHERE id = ?" + lock, (class_id,)).fetchone()
+
+        fitness_class = connection.execute(
+            "SELECT * FROM classes WHERE id = ?" + lock,
+            (class_id,)
+        ).fetchone()
+
         if not fitness_class:
-            abort(404)
-        already_booked = connection.execute("SELECT 1 FROM bookings WHERE user_id = ? AND class_id = ?", (g.user["id"], class_id)).fetchone()
-        booked = connection.execute("SELECT COUNT(*) AS total FROM bookings WHERE class_id = ?", (class_id,)).fetchone()["total"]
+            connection.execute("ROLLBACK")
+
+            return {
+                "success": False,
+                "message": "La clase no existe."
+            }, 404
+
+        already_booked = connection.execute(
+            """
+            SELECT 1
+            FROM bookings
+            WHERE user_id = ? AND class_id = ?
+            """,
+            (g.user["id"], class_id)
+        ).fetchone()
+
         if already_booked:
-            flash("Ya tienes una reserva en esta clase.", "info")
-        elif booked >= fitness_class["capacity"]:
-            flash("Lo sentimos, esta clase se ha llenado.", "error")
-        else:
-            connection.execute("INSERT INTO bookings (user_id, class_id) VALUES (?, ?)", (g.user["id"], class_id))
-            connection.execute("COMMIT")
-            try:
-                send_confirmation(g.user, fitness_class)
-            except Exception:
-                app.logger.exception("La reserva se creó, pero el email no se pudo enviar")
-            flash("¡Plaza reservada! Te enviamos la confirmación por correo.", "success")
-            return redirect(url_for("dashboard"))
+            connection.execute("ROLLBACK")
+
+            return {
+                "success": False,
+                "message": "Ya tienes una reserva en esta clase."
+            }, 409
+
+        booked = connection.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM bookings
+            WHERE class_id = ?
+            """,
+            (class_id,)
+        ).fetchone()["total"]
+
+        if booked >= fitness_class["capacity"]:
+            connection.execute("ROLLBACK")
+
+            return {
+                "success": False,
+                "message": "Lo sentimos, esta clase está completa."
+            }, 409
+
+        connection.execute(
+            """
+            INSERT INTO bookings (user_id, class_id)
+            VALUES (?, ?)
+            """,
+            (g.user["id"], class_id)
+        )
+
         connection.execute("COMMIT")
+
+        try:
+            send_confirmation(g.user, fitness_class)
+        except Exception:
+            app.logger.exception(
+                "La reserva se creó, pero el email no se pudo enviar."
+            )
+
+        return {
+            "success": True,
+            "message": "¡Plaza reservada correctamente!"
+        }, 201
+
     except Exception:
         connection.execute("ROLLBACK")
         raise
-    return redirect(url_for("index") + "#clases")
 
+@app.get("/api/classes")
+def get_classes():
+    classes = db().execute("""
+        SELECT
+            c.*,
+            c.capacity - COUNT(b.id) AS places_left
+        FROM classes c
+        LEFT JOIN bookings b ON b.class_id = c.id
+        GROUP BY c.id
+        ORDER BY c.class_date, c.class_time
+    """).fetchall()
+
+    return [
+        dict(class_item)
+        for class_item in classes
+    ]
 
 @app.route("/mis-reservas")
 @login_required
