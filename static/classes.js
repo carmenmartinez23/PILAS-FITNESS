@@ -242,7 +242,7 @@ async function reserveClass(classId) {
 
 
         window.location.href =
-            "/login?next=" +
+            "/acceder?next=" +
             encodeURIComponent(
                 window.location.pathname +
                 window.location.hash
