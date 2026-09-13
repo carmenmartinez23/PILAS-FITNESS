@@ -46,6 +46,14 @@
                     {{ booking['trainer'] }}
                 </p>
 
+                <button
+                    type="button"
+                    class="cancel-booking"
+                    data-class-id="{{ booking['classId'] }}"
+                >
+                    Cancelar reserva
+                </button>
+
             </div>
 
             <b>✓</b>
@@ -76,5 +84,170 @@
     {% endif %}
 
 </section>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+
+import {
+    getAuth,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+
+import {
+    getFunctions,
+    httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+
+import { firebaseConfig } from "{{ url_for('static', filename='firebase-config.js') }}";
+
+const app =
+    initializeApp(firebaseConfig);
+
+const auth =
+    getAuth(app);
+
+const functions =
+    getFunctions(
+        app,
+        "us-central1"
+    );
+
+const cancelClassFunction =
+    httpsCallable(
+        functions,
+        "cancelClass"
+    );
+
+const buttons =
+    document.querySelectorAll(
+        ".cancel-booking"
+    );
+
+buttons.forEach(button => {
+
+    button.addEventListener(
+        "click",
+        async () => {
+
+            const classId =
+                button.dataset.classId;
+
+            const confirmed =
+                window.confirm(
+                    "¿Seguro que quieres cancelar esta reserva?\n\nLa plaza volverá a estar disponible para otro usuario."
+                );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+
+                button.disabled = true;
+
+                button.textContent =
+                    "Cancelando…";
+
+                await onAuthReady();
+
+                await cancelClassFunction({
+                    classId: classId
+                });
+
+                alert(
+                    "Reserva cancelada correctamente."
+                );
+
+                window.location.reload();
+
+            } catch (error) {
+
+                console.error(
+                    "Error cancelando reserva:",
+                    error
+                );
+
+                let message =
+                    "No se ha podido cancelar la reserva.";
+
+                switch (error.code) {
+
+                    case "functions/unauthenticated":
+
+                        message =
+                            "Debes iniciar sesión para cancelar la reserva.";
+
+                        break;
+
+                    case "functions/not-found":
+
+                        message =
+                            "No se ha encontrado tu reserva.";
+
+                        break;
+
+                    case "functions/permission-denied":
+
+                        message =
+                            "No puedes cancelar esta reserva.";
+
+                        break;
+
+                    case "functions/invalid-argument":
+
+                        message =
+                            "La clase seleccionada no es válida.";
+
+                        break;
+
+                }
+
+                alert(message);
+
+                button.disabled = false;
+
+                button.textContent =
+                    "Cancelar reserva";
+            }
+
+        }
+    );
+
+});
+
+
+function onAuthReady() {
+
+    return new Promise((resolve, reject) => {
+
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                user => {
+
+                    unsubscribe();
+
+                    if (user) {
+                        resolve(user);
+                    } else {
+                        reject({
+                            code: "functions/unauthenticated"
+                        });
+                    }
+
+                }
+            );
+
+    });
+
+}
+
+</script>
 
 {% endblock %}
