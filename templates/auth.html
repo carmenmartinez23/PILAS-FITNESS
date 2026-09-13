@@ -17,7 +17,14 @@ endblock %}{% block content %}<section class="auth-page">
                     autocomplete="{% if mode == 'login' %}current-password{% else %}new-password{% endif %}" required
                     minlength="6" placeholder="Mínimo 6 caracteres"></label><button class="primary submit">{% if mode ==
                 'login' %}Entrar a mi cuenta{% else %}Crear mi cuenta{% endif %} <b>→</b></button></form>
-        <p class="auth-switch">{% if mode == 'login' %}¿Aún no tienes cuenta? <a href="{{ url_for('register') }}">Crear
+                {% if mode == 'login' %}
+                <p class="forgot-password">
+                    <a href="#" id="forgot-password">
+                        ¿Has olvidado tu contraseña?
+                    </a>
+                </p>
+                {% endif %}
+                <p class="auth-switch">{% if mode == 'login' %}¿Aún no tienes cuenta? <a href="{{ url_for('register') }}">Crear
                 cuenta</a>{% else %}¿Ya eres miembro? <a href="{{ url_for('login') }}">Entrar</a>{% endif %}</p>
         <button type="button" id="google-login" class="google-btn">Entrar con Google</button>
     </div>
