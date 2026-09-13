@@ -433,6 +433,7 @@ def dashboard():
 
         bookings.append({
             "booking_id": booking_doc.id,
+            "classId": class_id,
             **class_data
         })
 
