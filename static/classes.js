@@ -18,20 +18,30 @@ import {
 
 import { firebaseConfig } from "./firebase-config.js";
 
-
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const functions = getFunctions(app, "us-central1");
-
-const reserveClassFunction = httpsCallable(
-    functions,
-    "reserveClass"
+const functions = getFunctions(
+    app,
+    "us-central1"
 );
 
-const classGrid = document.getElementById("class-grid");
+const reserveClassFunction =
+    httpsCallable(
+        functions,
+        "reserveClass"
+    );
+
+const cancelClassFunction =
+    httpsCallable(
+        functions,
+        "cancelClass"
+    );
+
+const classGrid =
+    document.getElementById("class-grid");
 
 
 async function loadClasses() {
@@ -39,7 +49,9 @@ async function loadClasses() {
     try {
 
         const snapshot =
-            await getDocs(collection(db, "classes"));
+            await getDocs(
+                collection(db, "classes")
+            );
 
         classGrid.innerHTML = "";
 
@@ -52,9 +64,7 @@ async function loadClasses() {
             return;
         }
 
-
         const classes = [];
-
 
         snapshot.forEach(doc => {
 
@@ -64,7 +74,6 @@ async function loadClasses() {
             });
 
         });
-
 
         classes.sort((a, b) => {
 
@@ -78,7 +87,6 @@ async function loadClasses() {
 
         });
 
-
         classes.forEach(classItem => {
 
             const placesLeft =
@@ -88,13 +96,11 @@ async function loadClasses() {
             const isFull =
                 placesLeft <= 0;
 
-
             const card =
                 document.createElement("article");
 
             card.className =
                 "class-card";
-
 
             card.innerHTML = `
                 <img
@@ -122,11 +128,9 @@ async function loadClasses() {
 
                     </div>
 
-
                     <h3>
                         ${classItem.title}
                     </h3>
-
 
                     <p>
                         ${classItem.trainer}
@@ -136,11 +140,9 @@ async function loadClasses() {
                         ${classItem.time}
                     </p>
 
-
                     <p class="description">
                         ${classItem.description}
                     </p>
-
 
                     <button
                         class="reserve"
@@ -157,14 +159,11 @@ async function loadClasses() {
                 </div>
             `;
 
-
             classGrid.appendChild(card);
 
         });
 
-
         addReservationEvents();
-
 
     } catch (error) {
 
@@ -179,17 +178,16 @@ async function loadClasses() {
                 Inténtalo de nuevo.
             </p>
         `;
-
     }
-
 }
 
 
 function formatDate(dateString) {
 
     const date =
-        new Date(`${dateString}T00:00:00`);
-
+        new Date(
+            `${dateString}T00:00:00`
+        );
 
     return date.toLocaleDateString(
         "es-ES",
@@ -199,15 +197,15 @@ function formatDate(dateString) {
             year: "numeric"
         }
     );
-
 }
 
 
 function addReservationEvents() {
 
     const buttons =
-        document.querySelectorAll(".reserve");
-
+        document.querySelectorAll(
+            ".reserve"
+        );
 
     buttons.forEach(button => {
 
@@ -224,7 +222,6 @@ function addReservationEvents() {
         );
 
     });
-
 }
 
 
@@ -233,13 +230,11 @@ async function reserveClass(classId) {
     const user =
         auth.currentUser;
 
-
     if (!user) {
 
         alert(
             "Debes iniciar sesión para reservar una clase."
         );
-
 
         window.location.href =
             "/acceder?next=" +
@@ -248,16 +243,13 @@ async function reserveClass(classId) {
                 window.location.hash
             );
 
-
         return;
     }
-
 
     const button =
         document.querySelector(
             `.reserve[data-class-id="${classId}"]`
         );
-
 
     try {
 
@@ -270,26 +262,21 @@ async function reserveClass(classId) {
 
         }
 
-
         const result =
             await reserveClassFunction({
                 classId: classId
             });
-
 
         console.log(
             "Reserva realizada:",
             result.data
         );
 
-
         alert(
             "¡Reserva realizada correctamente!"
         );
 
-
         await loadClasses();
-
 
     } catch (error) {
 
@@ -298,10 +285,8 @@ async function reserveClass(classId) {
             error
         );
 
-
         let message =
             "No se ha podido realizar la reserva.";
-
 
         switch (error.code) {
 
@@ -312,14 +297,12 @@ async function reserveClass(classId) {
 
                 break;
 
-
             case "functions/already-exists":
 
                 message =
                     "Ya tienes reservada esta clase.";
 
                 break;
-
 
             case "functions/resource-exhausted":
 
@@ -328,14 +311,12 @@ async function reserveClass(classId) {
 
                 break;
 
-
             case "functions/not-found":
 
                 message =
                     "La clase ya no existe.";
 
                 break;
-
 
             case "functions/invalid-argument":
 
@@ -346,19 +327,131 @@ async function reserveClass(classId) {
 
         }
 
-
         alert(message);
 
-
         await loadClasses();
-
     }
-
 }
 
 
-onAuthStateChanged(auth, () => {
+async function cancelClass(classId) {
 
-    loadClasses();
+    const user =
+        auth.currentUser;
 
-});
+    if (!user) {
+
+        alert(
+            "Debes iniciar sesión para cancelar una reserva."
+        );
+
+        window.location.href =
+            "/acceder";
+
+        return;
+    }
+
+    const confirmed =
+        window.confirm(
+            "¿Seguro que quieres cancelar esta reserva?\n\nLa plaza volverá a estar disponible para otro usuario."
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const button =
+        document.querySelector(
+            `.cancel-booking[data-class-id="${classId}"]`
+        );
+
+    try {
+
+        if (button) {
+
+            button.disabled = true;
+
+            button.textContent =
+                "Cancelando…";
+
+        }
+
+        const result =
+            await cancelClassFunction({
+                classId: classId
+            });
+
+        console.log(
+            "Reserva cancelada:",
+            result.data
+        );
+
+        alert(
+            "Reserva cancelada correctamente."
+        );
+
+        window.location.reload();
+
+    } catch (error) {
+
+        console.error(
+            "Error cancelando la reserva:",
+            error
+        );
+
+        let message =
+            "No se ha podido cancelar la reserva.";
+
+        switch (error.code) {
+
+            case "functions/unauthenticated":
+
+                message =
+                    "Debes iniciar sesión para cancelar la reserva.";
+
+                break;
+
+            case "functions/not-found":
+
+                message =
+                    "No se ha encontrado tu reserva.";
+
+                break;
+
+            case "functions/permission-denied":
+
+                message =
+                    "No puedes cancelar esta reserva.";
+
+                break;
+
+            case "functions/invalid-argument":
+
+                message =
+                    "La clase seleccionada no es válida.";
+
+                break;
+
+        }
+
+        alert(message);
+
+        if (button) {
+
+            button.disabled = false;
+
+            button.textContent =
+                "Cancelar reserva";
+
+        }
+
+    }
+}
+
+
+onAuthStateChanged(
+    auth,
+    () => {
+        loadClasses();
+    }
+);
