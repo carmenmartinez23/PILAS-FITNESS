@@ -607,3 +607,19 @@ footer span {
         display: none
     }
 }
+
+.forgot-password {
+    margin: 14px 0 0;
+    text-align: center;
+}
+
+.forgot-password a {
+    color: inherit;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.forgot-password a:hover {
+    opacity: 0.7;
+}
