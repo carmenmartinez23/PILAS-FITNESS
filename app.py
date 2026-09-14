@@ -226,50 +226,26 @@ def send_confirmation(user, fitness_class):
         server.send_message(message)
 
 def generate_password_reset_link(email):
-    firebase_api_key = os.getenv("FIREBASE_WEB_API_KEY")
-
-    if not firebase_api_key:
-        raise RuntimeError(
-            "Falta la variable FIREBASE_WEB_API_KEY en Render."
+    try:
+        reset_link = firebase_auth.generate_password_reset_link(
+            email,
+            action_code_settings={
+                "url": "https://pilas-fitness.onrender.com/restablecer-contrasena",
+                "handle_code_in_app": True,
+            }
         )
 
-    response = requests.post(
-        "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode",
-        params={
-            "key": firebase_api_key
-        },
-        json={
-            "requestType": "PASSWORD_RESET",
-            "email": email,
-            "continueUrl": "https://pilas-fitness.onrender.com/restablecer-contrasena"
-        },
-        timeout=15
-    )
+        return reset_link
 
-    if not response.ok:
+    except Exception as error:
         app.logger.error(
-            "Firebase password reset error: %s",
-            response.text
+            "Firebase password reset link error: %s",
+            error
         )
+
         raise RuntimeError(
             "No se pudo generar el enlace de recuperación."
         )
-
-    data = response.json()
-
-    oob_code = data.get("oobCode")
-
-    if not oob_code:
-        raise RuntimeError(
-            "Firebase no devolvió el código de recuperación."
-        )
-
-    return (
-        "https://pilas-fitness.onrender.com/"
-        "restablecer-contrasena?mode=resetPassword"
-        f"&oobCode={oob_code}"
-        f"&apiKey={firebase_api_key}"
-    )
 
 
 def send_password_reset_email(email, reset_link):
