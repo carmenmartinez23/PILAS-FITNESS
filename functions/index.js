@@ -1,10 +1,12 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
 
 const db = getFirestore();
+const resendApiKey = defineSecret("RESEND_API_KEY");
 
 exports.reserveClass = onCall(async (request) => {
 
