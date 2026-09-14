@@ -7,7 +7,428 @@ initializeApp();
 
 const db = getFirestore();
 const resendApiKey = defineSecret("RESEND_API_KEY");
+async function sendResendEmail({ to, subject, html }) {
 
+    const apiKey = resendApiKey.value();
+
+    const response = await fetch(
+        "https://api.resend.com/emails",
+        {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                from: "FitFlow <cuentas@pilas-fitness.es>",
+                to: [to],
+                subject: subject,
+                html: html
+            })
+        }
+    );
+
+    if (!response.ok) {
+
+        const errorText =
+            await response.text();
+
+        throw new Error(
+            `Resend error ${response.status}: ${errorText}`
+        );
+    }
+
+    return response.json();
+}
+
+
+function formatSpanishDate(dateString) {
+
+    const date =
+        new Date(`${dateString}T00:00:00`);
+
+    return date.toLocaleDateString(
+        "es-ES",
+        {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+        }
+    );
+}
+
+
+function createBookingEmailHtml({
+    name,
+    classData,
+    type
+}) {
+
+    const isCancellation =
+        type === "cancelled";
+
+    const formattedDate =
+        formatSpanishDate(classData.date);
+
+    const eyebrow =
+        isCancellation
+            ? "RESERVA CANCELADA"
+            : "RESERVA CONFIRMADA";
+
+    const title =
+        isCancellation
+            ? "Tu reserva ha<br>quedado cancelada"
+            : "¡Tu plaza está<br>reservada!";
+
+    const message =
+        isCancellation
+            ? `Hola ${name}, tu reserva para esta clase ha sido cancelada correctamente.`
+            : `Hola ${name}, tu reserva se ha realizado correctamente. ¡Te esperamos en clase!`;
+
+    const footerMessage =
+        isCancellation
+            ? "La plaza queda disponible nuevamente para otro usuario."
+            : "Si finalmente no puedes asistir, recuerda cancelar tu reserva desde tu área de miembro.";
+
+    return `
+<!doctype html>
+
+<html lang="es">
+
+<head>
+
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        ${isCancellation
+            ? "Reserva cancelada"
+            : "Reserva confirmada"
+        } · FitFlow
+    </title>
+
+</head>
+
+<body style="
+    margin:0;
+    padding:0;
+    background:#eef8f1;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#083b2a;
+">
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+        background:#eef8f1;
+        padding:45px 15px;
+    "
+>
+
+<tr>
+
+<td align="center">
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+        max-width:580px;
+        background:#ffffff;
+        border-radius:20px;
+        overflow:hidden;
+        box-shadow:0 8px 30px rgba(8,59,42,0.08);
+    "
+>
+
+<!-- CABECERA -->
+
+<tr>
+
+<td
+    align="center"
+    style="
+        background:#087542;
+        padding:32px 30px;
+    "
+>
+
+<table
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+>
+
+<tr>
+
+<td
+    align="center"
+    valign="middle"
+    style="
+        width:42px;
+        height:42px;
+        background:#8fdb4d;
+        border-radius:50%;
+        color:#083b2a;
+        font-size:22px;
+        font-weight:800;
+        line-height:42px;
+    "
+>
+    F
+</td>
+
+<td style="
+    padding-left:12px;
+    color:#ffffff;
+    font-size:16px;
+    font-weight:800;
+    letter-spacing:3px;
+">
+    FITFLOW
+</td>
+
+</tr>
+
+</table>
+
+</td>
+
+</tr>
+
+
+<!-- CONTENIDO -->
+
+<tr>
+
+<td style="
+    padding:48px 42px 42px;
+">
+
+<p style="
+    margin:0 0 14px;
+    color:#39705a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+">
+    ${eyebrow}
+</p>
+
+
+<h1 style="
+    margin:0 0 22px;
+    color:#083b2a;
+    font-size:34px;
+    line-height:1.12;
+    font-weight:800;
+    letter-spacing:-1.2px;
+">
+    ${title}
+</h1>
+
+
+<p style="
+    margin:0 0 28px;
+    color:#39705a;
+    font-size:15px;
+    line-height:1.7;
+">
+    ${message}
+</p>
+
+
+<!-- DATOS DE LA CLASE -->
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="margin-bottom:28px;"
+>
+
+<tr>
+
+<td style="
+    background:#eef8f1;
+    border-left:4px solid #8fdb4d;
+    border-radius:8px;
+    padding:18px;
+">
+
+<p style="
+    margin:0 0 8px;
+    color:#39705a;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+">
+    CLASE
+</p>
+
+
+<p style="
+    margin:0 0 14px;
+    color:#083b2a;
+    font-size:20px;
+    font-weight:800;
+">
+    ${classData.title}
+</p>
+
+
+<p style="
+    margin:0 0 6px;
+    color:#39705a;
+    font-size:13px;
+">
+    📅 ${formattedDate}
+</p>
+
+
+<p style="
+    margin:0 0 6px;
+    color:#39705a;
+    font-size:13px;
+">
+    🕐 ${classData.time}
+</p>
+
+
+<p style="
+    margin:0;
+    color:#39705a;
+    font-size:13px;
+">
+    👤 ${classData.trainer}
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+
+<p style="
+    margin:0;
+    color:#6c8b7b;
+    font-size:12px;
+    line-height:1.6;
+    text-align:center;
+">
+    ${footerMessage}
+</p>
+
+</td>
+
+</tr>
+
+
+<!-- FOOTER -->
+
+<tr>
+
+<td
+    align="center"
+    style="
+        background:#f7fcf8;
+        border-top:1px solid #e5f0e8;
+        padding:24px 30px;
+    "
+>
+
+<p style="
+    margin:0 0 7px;
+    color:#083b2a;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:2px;
+">
+    FITFLOW
+</p>
+
+
+<p style="
+    margin:0;
+    color:#6c8b7b;
+    font-size:10px;
+">
+    Mueve el cuerpo. Cambia el día.
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+
+<p style="
+    margin:20px 10px 0;
+    color:#7b9688;
+    font-size:10px;
+    text-align:center;
+">
+    Este correo se ha enviado automáticamente.
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+</body>
+
+</html>
+`;
+}
+async function sendBookingConfirmationEmail(user, classData) {
+
+    const html =
+        createBookingEmailHtml({
+            name: user.name,
+            classData: classData,
+            type: "confirmed"
+        });
+
+    await sendResendEmail({
+        to: user.email,
+        subject: `Reserva confirmada · ${classData.title}`,
+        html: html
+    });
+}
+
+
+async function sendBookingCancellationEmail(user, classData) {
+
+    const html =
+        createBookingEmailHtml({
+            name: user.name,
+            classData: classData,
+            type: "cancelled"
+        });
+
+    await sendResendEmail({
+        to: user.email,
+        subject: `Reserva cancelada · ${classData.title}`,
+        html: html
+    });
+}
 exports.reserveClass = onCall(async (request) => {
 
     if (!request.auth) {
