@@ -9,15 +9,28 @@ endblock %}{% block content %}<section class="auth-page">
         <p class="eyebrow">FITFLOW MEMBER</p>
         <h1>{% if mode == 'login' %}Qué bien verte<br>de nuevo.{% else %}Empieza a<br>moverte.{% endif %}</h1>
         <p id="auth-error" class="flash error" hidden></p>
-        <form id="auth-form" data-mode="{{ mode }}">{% if mode == 'register'
-            %}<label>Nombre completo<input name="name" autocomplete="name" required minlength="2"
-                    placeholder="Tu nombre"></label>{% endif %}<label>Correo electrónico<input type="email" name="email"
-                    autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña<input
-                    type="password" name="password"
-                    autocomplete="{% if mode == 'login' %}current-password{% else %}new-password{% endif %}" required
-                    minlength="6" placeholder="Mínimo 6 caracteres"></label><button class="primary submit">{% if mode ==
-                'login' %}Entrar a mi cuenta{% else %}Crear mi cuenta{% endif %} <b>→</b></button></form>
-        {% if mode == 'login' %}
+        <form id="auth-form" data-mode="{{ mode }}">
+            {% if mode == 'register'%}
+            <label>Nombre completo<input name="name" autocomplete="name" required minlength="2"placeholder="Tu nombre">
+            </label>
+            <label>Código promocional
+                <input
+                    name="promoCode"
+                    autocomplete="off"
+                    required
+                    placeholder="Ej. FITFLOW001"
+                    style="text-transform: uppercase;"
+                >
+            </label>
+            {% endif %}
+            <label>Correo electrónico<input type="email" name="email"
+            autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña<input
+            type="password" name="password"
+            autocomplete="{% if mode == 'login' %}current-password{% else %}new-password{% endif %}" required
+            minlength="6" placeholder="Mínimo 6 caracteres"></label>
+            <button class="primary submit">{% if mode ==
+            'login' %}Entrar a mi cuenta{% else %}Crear mi cuenta{% endif %} <b>→</b></button></form>
+            {% if mode == 'login' %}
         <p class="forgot-password">
             <a href="#" id="forgot-password">
                 ¿Has olvidado tu contraseña?
