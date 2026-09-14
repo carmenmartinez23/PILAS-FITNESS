@@ -42,13 +42,66 @@
   <main>{% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div
       class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}{% block content %}{% endblock %}</main>
   <footer>FITFLOW <span>·</span> Mueve el cuerpo. Cambia el día.</footer>
-  {% if g.user %}<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-    import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-    import { firebaseConfig } from "{{ url_for('static', filename='firebase-config.js') }}";
-    const auth = getAuth(initializeApp(firebaseConfig));
-    document.getElementById("logout-form").addEventListener("submit", () => { signOut(auth).catch(() => {}); });
-  </script>{% endif %}
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import {
+    getAuth,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+
+  import { firebaseConfig } from "{{ url_for('static', filename='firebase-config.js') }}";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  const login = document.getElementById("nav-login");
+  const register = document.getElementById("nav-register");
+  const bookings = document.getElementById("nav-bookings");
+  const greeting = document.getElementById("nav-greeting");
+  const logout = document.getElementById("nav-logout");
+
+  onAuthStateChanged(auth, (user) => {
+
+    if (user) {
+
+      login.hidden = true;
+      register.hidden = true;
+
+      bookings.hidden = false;
+      greeting.hidden = false;
+      logout.hidden = false;
+
+      const name =
+        user.displayName ||
+        user.email?.split("@")[0] ||
+        "Miembro";
+
+      greeting.textContent =
+        `Hola, ${name.split(" ")[0]}`;
+
+    } else {
+
+      login.hidden = false;
+      register.hidden = false;
+
+      bookings.hidden = true;
+      greeting.hidden = true;
+      logout.hidden = true;
+    }
+  });
+
+  logout.addEventListener("click", async () => {
+
+    try {
+      await signOut(auth);
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Error cerrando sesión:", error);
+    }
+
+  });
+</script>
   {% block scripts %}{% endblock %}
 </body>
 
