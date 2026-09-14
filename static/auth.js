@@ -326,9 +326,68 @@ if (googleButton) {
                         new GoogleAuthProvider()
                     );
 
-                await completeLogin(
-                    credential
-                );
+                const additionalInfo =
+                    getAdditionalUserInfo(credential);
+
+                const isNewUser =
+                    additionalInfo?.isNewUser === true;
+
+                let promoCode = null;
+
+                if (isNewUser) {
+
+                    promoCode = window.prompt(
+                        "Introduce tu código promocional:"
+                    );
+
+                    if (!promoCode) {
+
+                        await deleteUser(
+                            credential.user
+                        );
+
+                        showError(
+                            "Necesitas un código promocional para crear una cuenta."
+                        );
+
+                        return;
+                    }
+
+                    promoCode =
+                        promoCode.trim().toUpperCase();
+
+                    try {
+
+                        await completeLogin(
+                            credential,
+                            promoCode
+                        );
+
+                    } catch (error) {
+
+                        try {
+
+                            await deleteUser(
+                                credential.user
+                            );
+
+                        } catch (deleteError) {
+
+                            console.error(
+                                "No se pudo eliminar la cuenta Google tras fallar el registro:",
+                                deleteError
+                            );
+                        }
+
+                        throw error;
+                    }
+
+                } else {
+
+                    await completeLogin(
+                        credential
+                    );
+                }
 
             } catch (error) {
 
@@ -339,6 +398,7 @@ if (googleButton) {
 
                 showError(
                     ERROR_MESSAGES[error.code] ||
+                    error.message ||
                     "No se pudo iniciar sesión con Google."
                 );
             }
