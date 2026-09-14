@@ -248,9 +248,47 @@ def login():
         return redirect(url_for("index"))
     return render_template("auth.html", mode="login")
     
-@app.route("/restablecer-contrasena")
-def reset_password():
-    return render_template("reset-password.html")
+@app.post("/recuperar-contrasena")
+def recover_password():
+    payload = request.get_json(silent=True) or {}
+
+    email = (payload.get("email") or "").strip().lower()
+
+    if not email:
+        return {
+            "success": False,
+            "message": "Introduce tu correo electrónico."
+        }, 400
+
+    try:
+        reset_link = generate_password_reset_link(email)
+
+        send_password_reset_email(
+            email,
+            reset_link
+        )
+
+    except Exception:
+        app.logger.exception(
+            "Error enviando correo de recuperación para %s",
+            email
+        )
+
+        return {
+            "success": True,
+            "message": (
+                "Si existe una cuenta con ese correo, "
+                "recibirás un mensaje para restablecer tu contraseña."
+            )
+        }
+
+    return {
+        "success": True,
+        "message": (
+            "Si existe una cuenta con ese correo, "
+            "recibirás un mensaje para restablecer tu contraseña."
+        )
+    }
 
 @app.post("/sesion")
 def crear_sesion():
