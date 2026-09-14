@@ -554,7 +554,293 @@ def send_booking_confirmation_email(user, fitness_class):
         raise RuntimeError(
             "No se pudo enviar el correo de confirmación."
         )
-    
+
+def send_registration_confirmation_email(user, promo_code):
+    resend_api_key = os.getenv("RESEND_API_KEY")
+
+    if not resend_api_key:
+        raise RuntimeError(
+            "Falta la variable RESEND_API_KEY en Render."
+        )
+
+    sender = os.getenv(
+        "RESEND_FROM",
+        "FitFlow <onboarding@resend.dev>"
+    )
+
+    html = f"""
+    <!doctype html>
+    <html lang="es">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+        <title>Registro completado · FitFlow</title>
+    </head>
+
+    <body style="
+        margin:0;
+        padding:0;
+        background:#eef8f1;
+        font-family:Arial, Helvetica, sans-serif;
+        color:#083b2a;
+    ">
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="background:#eef8f1;padding:45px 15px;">
+
+            <tr>
+                <td align="center">
+
+                    <table width="100%" cellpadding="0" cellspacing="0"
+                           border="0"
+                           style="
+                               max-width:580px;
+                               background:#ffffff;
+                               border-radius:20px;
+                               overflow:hidden;
+                               box-shadow:0 8px 30px rgba(8,59,42,0.08);
+                           ">
+
+                        <!-- CABECERA -->
+
+                        <tr>
+                            <td align="center"
+                                style="
+                                    background:#087542;
+                                    padding:32px 30px;
+                                ">
+
+                                <table cellpadding="0"
+                                       cellspacing="0"
+                                       border="0">
+
+                                    <tr>
+
+                                        <td align="center"
+                                            valign="middle"
+                                            style="
+                                                width:42px;
+                                                height:42px;
+                                                background:#8fdb4d;
+                                                border-radius:50%;
+                                                color:#083b2a;
+                                                font-size:22px;
+                                                font-weight:800;
+                                                line-height:42px;
+                                            ">
+                                            F
+                                        </td>
+
+                                        <td style="
+                                            padding-left:12px;
+                                            color:#ffffff;
+                                            font-size:16px;
+                                            font-weight:800;
+                                            letter-spacing:3px;
+                                        ">
+                                            FITFLOW
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+                            </td>
+                        </tr>
+
+
+                        <!-- CONTENIDO -->
+
+                        <tr>
+                            <td style="padding:48px 42px 42px;">
+
+                                <p style="
+                                    margin:0 0 14px;
+                                    color:#39705a;
+                                    font-size:11px;
+                                    font-weight:700;
+                                    letter-spacing:2.5px;
+                                    text-transform:uppercase;
+                                ">
+                                    REGISTRO COMPLETADO
+                                </p>
+
+                                <h1 style="
+                                    margin:0 0 22px;
+                                    color:#083b2a;
+                                    font-size:34px;
+                                    line-height:1.12;
+                                    font-weight:800;
+                                    letter-spacing:-1.2px;
+                                ">
+                                    ¡Bienvenido<br>
+                                    a FitFlow!
+                                </h1>
+
+                                <p style="
+                                    margin:0 0 30px;
+                                    color:#39705a;
+                                    font-size:15px;
+                                    line-height:1.7;
+                                ">
+                                    Hola {user["name"]}, tu cuenta se ha
+                                    creado correctamente.
+                                    ¡Ya formas parte de FitFlow!
+                                </p>
+
+
+                                <!-- DATOS DE LA CUENTA -->
+
+                                <table width="100%"
+                                       cellpadding="0"
+                                       cellspacing="0"
+                                       border="0"
+                                       style="margin-bottom:28px;">
+
+                                    <tr>
+                                        <td style="
+                                            background:#eef8f1;
+                                            border-left:4px solid #8fdb4d;
+                                            border-radius:8px;
+                                            padding:20px;
+                                        ">
+
+                                            <p style="
+                                                margin:0 0 8px;
+                                                color:#39705a;
+                                                font-size:10px;
+                                                font-weight:700;
+                                                letter-spacing:1.5px;
+                                                text-transform:uppercase;
+                                            ">
+                                                DATOS DE TU CUENTA
+                                            </p>
+
+                                            <p style="
+                                                margin:0 0 10px;
+                                                color:#083b2a;
+                                                font-size:15px;
+                                            ">
+                                                <strong>👤 Nombre:</strong>
+                                                {user["name"]}
+                                            </p>
+
+                                            <p style="
+                                                margin:0 0 10px;
+                                                color:#083b2a;
+                                                font-size:15px;
+                                            ">
+                                                <strong>📧 Correo:</strong>
+                                                {user["email"]}
+                                            </p>
+
+                                            <p style="
+                                                margin:0;
+                                                color:#083b2a;
+                                                font-size:15px;
+                                            ">
+                                                <strong>🎟️ Código promocional:</strong>
+                                                {promo_code}
+                                            </p>
+
+                                        </td>
+                                    </tr>
+
+                                </table>
+
+
+                                <p style="
+                                    margin:0;
+                                    color:#6c8b7b;
+                                    font-size:12px;
+                                    line-height:1.6;
+                                    text-align:center;
+                                ">
+                                    Ya puedes acceder a tu cuenta y
+                                    comenzar a reservar tus clases.
+                                </p>
+
+                            </td>
+                        </tr>
+
+
+                        <!-- FOOTER -->
+
+                        <tr>
+                            <td align="center"
+                                style="
+                                    background:#f7fcf8;
+                                    border-top:1px solid #e5f0e8;
+                                    padding:24px 30px;
+                                ">
+
+                                <p style="
+                                    margin:0 0 7px;
+                                    color:#083b2a;
+                                    font-size:12px;
+                                    font-weight:800;
+                                    letter-spacing:2px;
+                                ">
+                                    FITFLOW
+                                </p>
+
+                                <p style="
+                                    margin:0;
+                                    color:#6c8b7b;
+                                    font-size:10px;
+                                ">
+                                    Mueve el cuerpo. Cambia el día.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                    <p style="
+                        margin:20px 10px 0;
+                        color:#7b9688;
+                        font-size:10px;
+                        text-align:center;
+                    ">
+                        Este correo se ha enviado automáticamente.
+                    </p>
+
+                </td>
+            </tr>
+
+        </table>
+
+    </body>
+    </html>
+    """
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": sender,
+            "to": [user["email"]],
+            "subject": "Bienvenido a FitFlow · Registro completado",
+            "html": html
+        },
+        timeout=15
+    )
+
+    if not response.ok:
+        app.logger.error(
+            "Resend registration confirmation error: %s",
+            response.text
+        )
+
+        raise RuntimeError(
+            "No se pudo enviar el correo de confirmación de registro."
+        )
 def generate_password_reset_link(email):
     try:
         action_code_settings = ActionCodeSettings(
@@ -1116,7 +1402,6 @@ def recover_password():
     }
 
 @app.post("/sesion")
-@app.post("/sesion")
 def crear_sesion():
     payload = request.get_json(silent=True) or {}
 
@@ -1167,6 +1452,20 @@ def crear_sesion():
         )
 
         session["user_id"] = user_id
+
+        try:
+            send_registration_confirmation_email(
+                {
+                    "name": name,
+                    "email": email
+                },
+                promo_code
+            )
+        except Exception as error:
+            app.logger.error(
+                "No se pudo enviar el correo de confirmación de registro: %s",
+                error
+            )
 
         return {
             "success": True,
