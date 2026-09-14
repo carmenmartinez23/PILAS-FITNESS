@@ -171,6 +171,23 @@ def init_db():
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             """)
+        test_promo_codes = [
+                                "FITFLOW001",
+                                "FITFLOW002",
+                                "FITFLOW003",
+                                "FITFLOW004",
+                                "FITFLOW005",
+                            ]
+                    
+        for code in test_promo_codes:
+            connection.execute(
+                """
+                INSERT INTO promo_codes (code)
+                VALUES (?)
+                ON CONFLICT (code) DO NOTHING
+                """,
+                (code,)
+            )
         class_count = connection.execute("SELECT COUNT(*) AS total FROM classes").fetchone()["total"]
         seeded = None
         if class_count == 0:
@@ -201,6 +218,22 @@ def login_required(view):
         return view(*args, **kwargs)
     return wrapped
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not g.user:
+            flash("Debes iniciar sesión.", "info")
+            return redirect(url_for("login"))
+
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+        user_email = (g.user["email"] or "").strip().lower()
+
+        if not admin_email or user_email != admin_email:
+            abort(403)
+
+        return view(*args, **kwargs)
+
+    return wrapped
 
 @app.before_request
 def load_user_and_csrf():
@@ -1281,5 +1314,25 @@ def dashboard():
         "dashboard.html",
         bookings=bookings
     )
+@app.route("/admin/codigos")
+@admin_required
+def admin_codes():
+    promo_codes = db().execute("""
+        SELECT
+            promo_codes.id,
+            promo_codes.code,
+            promo_codes.created_at,
+            users.name AS user_name,
+            users.email AS user_email
+        FROM promo_codes
+        LEFT JOIN users ON users.id = promo_codes.user_id
+        ORDER BY promo_codes.created_at DESC
+    """).fetchall()
+
+    return render_template(
+        "admin_codes.html",
+        promo_codes=promo_codes
+    )
+
 if __name__ == "__main__":
     app.run(debug=True)
