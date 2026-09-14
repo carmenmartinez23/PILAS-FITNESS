@@ -523,13 +523,13 @@ exports.reserveClass = onCall(
 
         });
         try {
-            await sendBookingCancellationEmail(
+            await sendBookingConfirmationEmail(
                 user,
                 classDataForEmail
             );
         } catch (error) {
             console.error(
-                "La reserva se canceló correctamente, pero no se pudo enviar el email:",
+                "La reserva se creó correctamente, pero no se pudo enviar el email:",
                 error
             );
         }
@@ -571,6 +571,15 @@ exports.cancelClass = onCall(
 
     const userId = request.auth.uid;
     const { classId } = request.data;
+    const authUser = await getAuth().getUser(userId);
+
+    const user = {
+        name:
+            authUser.displayName ||
+            authUser.email?.split("@")[0] ||
+            "Miembro",
+        email: authUser.email
+    };
 
     if (!classId || typeof classId !== "string") {
         throw new HttpsError(
@@ -581,6 +590,7 @@ exports.cancelClass = onCall(
 
     const classRef =
         db.collection("classes").doc(classId);
+    let classDataForEmail = null;
 
     const bookingId =
         `${classId}_${userId}`;
@@ -624,6 +634,9 @@ exports.cancelClass = onCall(
 
             const classData =
                 classSnapshot.data();
+            classDataForEmail = {
+                ...classData
+            };
 
             const bookedCount =
                 Number(classData.bookedCount || 0);
@@ -637,13 +650,13 @@ exports.cancelClass = onCall(
         });
 
         try {
-            await sendBookingConfirmationEmail(
+            await sendBookingCancellationEmail(
                 user,
                 classDataForEmail
             );
         } catch (error) {
             console.error(
-                "La reserva se creó correctamente, pero no se pudo enviar el email:",
+                "La reserva se canceló correctamente, pero no se pudo enviar el email:",
                 error
             );
         }
