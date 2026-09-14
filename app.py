@@ -1116,38 +1116,150 @@ def recover_password():
     }
 
 @app.post("/sesion")
+@app.post("/sesion")
 def crear_sesion():
     payload = request.get_json(silent=True) or {}
+
     id_token = payload.get("idToken")
+    promo_code = (payload.get("promoCode") or "").strip().upper()
+
     if not id_token:
-        abort(400, "Falta el token de Firebase.")
+        return {
+            "success": False,
+            "message": "Falta el token de Firebase."
+        }, 400
+
     try:
         decoded = firebase_auth.verify_id_token(id_token)
     except Exception:
-        abort(401, "No se pudo verificar la sesión de Firebase.")
+        return {
+            "success": False,
+            "message": "No se pudo verificar la sesión de Firebase."
+        }, 401
 
     uid = decoded["uid"]
     email = (decoded.get("email") or "").strip().lower()
-    name = decoded.get("name") or (email.split("@")[0] if email else "Miembro")
+    name = decoded.get("name") or (
+        email.split("@")[0] if email else "Miembro"
+    )
 
     connection = db()
-    user = connection.execute("SELECT * FROM users WHERE firebase_uid = ?", (uid,)).fetchone()
+
+    user = connection.execute(
+        "SELECT * FROM users WHERE firebase_uid = ?",
+        (uid,)
+    ).fetchone()
+
+    # ---------------------------------------------------------
+    # USUARIO QUE YA EXISTE
+    # ---------------------------------------------------------
+
     if user:
         user_id = user["id"]
-        connection.execute("UPDATE users SET name = ?, email = ? WHERE id = ?", (name, email, user_id))
-    else:
-        try:
-            cursor = connection.execute(
-                "INSERT INTO users (firebase_uid, name, email) VALUES (?, ?, ?) RETURNING id",
-                (uid, name, email),
+
+        connection.execute(
+            """
+            UPDATE users
+            SET name = ?, email = ?
+            WHERE id = ?
+            """,
+            (name, email, user_id)
+        )
+
+        session["user_id"] = user_id
+
+        return {
+            "success": True,
+            "ok": True
+        }
+
+    # ---------------------------------------------------------
+    # USUARIO NUEVO
+    # ---------------------------------------------------------
+
+    if not promo_code:
+        return {
+            "success": False,
+            "message": "Introduce tu código promocional."
+        }, 400
+
+    # Comprobamos que el código exista.
+    promo = connection.execute(
+        """
+        SELECT id, user_id
+        FROM promo_codes
+        WHERE code = ?
+        """,
+        (promo_code,)
+    ).fetchone()
+
+    if not promo:
+        return {
+            "success": False,
+            "message": "El código promocional no es válido."
+        }, 400
+
+    if promo["user_id"] is not None:
+        return {
+            "success": False,
+            "message": "Este código promocional ya ha sido utilizado."
+        }, 409
+
+    # ---------------------------------------------------------
+    # CREACIÓN ATÓMICA DEL USUARIO + CÓDIGO
+    # ---------------------------------------------------------
+
+    connection.execute(
+        "BEGIN" if connection.postgres else "BEGIN IMMEDIATE"
+    )
+
+    try:
+        cursor = connection.execute(
+            """
+            INSERT INTO users (
+                firebase_uid,
+                name,
+                email
             )
-            user_id = cursor.fetchone()["id"]
-        except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError):
-            user_id = connection.execute("SELECT id FROM users WHERE firebase_uid = ?", (uid,)).fetchone()["id"]
+            VALUES (?, ?, ?)
+            RETURNING id
+            """,
+            (uid, name, email)
+        )
+
+        user_id = cursor.fetchone()["id"]
+
+        # Intentamos reclamar el código.
+        result = connection.execute(
+            """
+            UPDATE promo_codes
+            SET user_id = ?
+            WHERE code = ?
+              AND user_id IS NULL
+            """,
+            (user_id, promo_code)
+        )
+
+        if result.rowcount != 1:
+            connection.execute("ROLLBACK")
+
+            return {
+                "success": False,
+                "message": "Este código promocional ya ha sido utilizado."
+            }, 409
+
+        connection.execute("COMMIT")
+
+    except Exception:
+        connection.execute("ROLLBACK")
+        raise
 
     session["user_id"] = user_id
-    return {"ok": True}
 
+    return {
+        "success": True,
+        "ok": True
+    }
 
 @app.post("/salir")
 def logout():
