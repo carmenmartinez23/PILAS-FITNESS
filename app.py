@@ -288,29 +288,42 @@ def send_password_reset_email(email, reset_link):
     html = f"""
     <!doctype html>
     <html lang="es">
+
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+
         <title>Restablece tu contraseña · FitFlow</title>
     </head>
 
     <body style="
         margin:0;
         padding:0;
-        background:#ddf7e5;
-        font-family:Arial,Helvetica,sans-serif;
+        background:#eef8f1;
+        font-family:Arial, Helvetica, sans-serif;
         color:#083b2a;
     ">
+
+        <!-- CONTENEDOR PRINCIPAL -->
 
         <table
             width="100%"
             cellpadding="0"
             cellspacing="0"
             border="0"
-            style="background:#ddf7e5;padding:40px 15px;"
+            style="
+                width:100%;
+                background:#eef8f1;
+                padding:45px 15px;
+            "
         >
+
             <tr>
+
                 <td align="center">
+
+                    <!-- TARJETA -->
 
                     <table
                         width="100%"
@@ -318,90 +331,189 @@ def send_password_reset_email(email, reset_link):
                         cellspacing="0"
                         border="0"
                         style="
-                            max-width:560px;
+                            max-width:580px;
                             background:#ffffff;
-                            border-radius:18px;
+                            border-radius:20px;
                             overflow:hidden;
+                            box-shadow:0 8px 30px rgba(8,59,42,0.08);
                         "
                     >
 
+                        <!-- CABECERA -->
+
                         <tr>
+
                             <td
+                                align="center"
                                 style="
                                     background:#087542;
-                                    padding:28px 35px;
-                                    text-align:center;
+                                    padding:32px 30px;
                                 "
                             >
 
-                                <div style="
-                                    display:inline-block;
-                                    width:42px;
-                                    height:42px;
-                                    line-height:42px;
-                                    border-radius:50%;
-                                    background:#8fdb4d;
-                                    color:#083b2a;
-                                    font-size:22px;
-                                    font-weight:800;
-                                ">
-                                    F
-                                </div>
-
-                                <div style="
-                                    margin-top:10px;
-                                    color:#ffffff;
-                                    font-size:14px;
-                                    font-weight:800;
-                                    letter-spacing:3px;
-                                ">
-                                    FITFLOW
-                                </div>
-
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td style="padding:45px 40px 40px;">
-
-                                <div style="
-                                    color:#39705a;
-                                    font-size:11px;
-                                    font-weight:bold;
-                                    letter-spacing:2px;
-                                    margin-bottom:14px;
-                                ">
-                                    FITFLOW MEMBER
-                                </div>
-
-                                <h1 style="
-                                    margin:0 0 20px;
-                                    color:#083b2a;
-                                    font-size:32px;
-                                    line-height:1.15;
-                                ">
-                                    ¿Has olvidado<br>
-                                    tu contraseña?
-                                </h1>
-
-                                <p style="
-                                    margin:0 0 25px;
-                                    color:#39705a;
-                                    font-size:15px;
-                                    line-height:1.7;
-                                ">
-                                    No pasa nada. Puedes crear una nueva
-                                    contraseña para volver a acceder a tu
-                                    cuenta de FitFlow.
-                                </p>
+                                <!-- LOGO -->
 
                                 <table
                                     cellpadding="0"
                                     cellspacing="0"
                                     border="0"
-                                    width="100%"
                                 >
+
                                     <tr>
+
+                                        <td
+                                            align="center"
+                                            valign="middle"
+                                            style="
+                                                width:42px;
+                                                height:42px;
+                                                background:#8fdb4d;
+                                                border-radius:50%;
+                                                color:#083b2a;
+                                                font-size:22px;
+                                                font-weight:800;
+                                                line-height:42px;
+                                            "
+                                        >
+                                            F
+                                        </td>
+
+                                        <td
+                                            style="
+                                                padding-left:12px;
+                                                color:#ffffff;
+                                                font-size:16px;
+                                                font-weight:800;
+                                                letter-spacing:3px;
+                                            "
+                                        >
+                                            FITFLOW
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+                            </td>
+
+                        </tr>
+
+
+                        <!-- CONTENIDO -->
+
+                        <tr>
+
+                            <td
+                                style="
+                                    padding:48px 42px 42px;
+                                "
+                            >
+
+                                <!-- EYEBROW -->
+
+                                <p style="
+                                    margin:0 0 14px;
+                                    color:#39705a;
+                                    font-size:11px;
+                                    font-weight:700;
+                                    letter-spacing:2.5px;
+                                    text-transform:uppercase;
+                                ">
+                                    FITFLOW MEMBER
+                                </p>
+
+
+                                <!-- TITULO -->
+
+                                <h1 style="
+                                    margin:0 0 22px;
+                                    color:#083b2a;
+                                    font-size:34px;
+                                    line-height:1.12;
+                                    font-weight:800;
+                                    letter-spacing:-1.2px;
+                                ">
+                                    ¿Has olvidado<br>
+                                    tu contraseña?
+                                </h1>
+
+
+                                <!-- TEXTO -->
+
+                                <p style="
+                                    margin:0 0 28px;
+                                    color:#39705a;
+                                    font-size:15px;
+                                    line-height:1.7;
+                                ">
+                                    No pasa nada. Hemos recibido una
+                                    solicitud para cambiar la contraseña
+                                    de tu cuenta de FitFlow.
+                                </p>
+
+
+                                <!-- CAJA DE CUENTA -->
+
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="
+                                        margin-bottom:30px;
+                                    "
+                                >
+
+                                    <tr>
+
+                                        <td
+                                            style="
+                                                background:#eef8f1;
+                                                border-left:4px solid #8fdb4d;
+                                                border-radius:8px;
+                                                padding:15px 18px;
+                                            "
+                                        >
+
+                                            <p style="
+                                                margin:0 0 5px;
+                                                color:#39705a;
+                                                font-size:10px;
+                                                font-weight:700;
+                                                letter-spacing:1.5px;
+                                                text-transform:uppercase;
+                                            ">
+                                                CUENTA
+                                            </p>
+
+                                            <p style="
+                                                margin:0;
+                                                color:#083b2a;
+                                                font-size:14px;
+                                                font-weight:600;
+                                                word-break:break-word;
+                                            ">
+                                                {email}
+                                            </p>
+
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+
+                                <!-- BOTÓN -->
+
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                >
+
+                                    <tr>
+
                                         <td align="center">
 
                                             <a
@@ -411,68 +523,197 @@ def send_password_reset_email(email, reset_link):
                                                     background:#087542;
                                                     color:#ffffff;
                                                     text-decoration:none;
-                                                    padding:15px 25px;
-                                                    border-radius:8px;
+                                                    padding:16px 28px;
+                                                    border-radius:9px;
                                                     font-size:14px;
-                                                    font-weight:bold;
+                                                    font-weight:700;
+                                                    letter-spacing:0.1px;
                                                 "
                                             >
-                                                Restablecer contraseña →
+                                                Restablecer contraseña
+                                                &nbsp;→
                                             </a>
 
                                         </td>
+
                                     </tr>
+
                                 </table>
 
-                                <p style="
-                                    margin:30px 0 0;
-                                    color:#39705a;
-                                    font-size:12px;
-                                    line-height:1.6;
-                                ">
-                                    Si tú no has solicitado cambiar tu
-                                    contraseña, puedes ignorar este correo.
-                                    Tu cuenta seguirá siendo segura.
-                                </p>
 
-                                <div style="
-                                    height:1px;
-                                    background:#ddf7e5;
-                                    margin:30px 0 20px;
-                                "></div>
+                                <!-- SEPARADOR -->
+
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    style="
+                                        margin:34px 0 26px;
+                                    "
+                                >
+
+                                    <tr>
+
+                                        <td
+                                            style="
+                                                height:1px;
+                                                background:#e3f0e7;
+                                                font-size:0;
+                                                line-height:0;
+                                            "
+                                        >
+                                            &nbsp;
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+
+                                <!-- SEGURIDAD -->
+
+                                <table
+                                    width="100%"
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                >
+
+                                    <tr>
+
+                                        <td
+                                            valign="top"
+                                            style="
+                                                width:34px;
+                                                padding-right:12px;
+                                            "
+                                        >
+
+                                            <div style="
+                                                width:32px;
+                                                height:32px;
+                                                background:#ddf7e5;
+                                                border-radius:50%;
+                                                text-align:center;
+                                                line-height:32px;
+                                                color:#087542;
+                                                font-size:15px;
+                                                font-weight:700;
+                                            ">
+                                                ✓
+                                            </div>
+
+                                        </td>
+
+                                        <td valign="top">
+
+                                            <p style="
+                                                margin:0 0 5px;
+                                                color:#083b2a;
+                                                font-size:13px;
+                                                font-weight:700;
+                                            ">
+                                                ¿No has sido tú?
+                                            </p>
+
+                                            <p style="
+                                                margin:0;
+                                                color:#39705a;
+                                                font-size:12px;
+                                                line-height:1.6;
+                                            ">
+                                                Puedes ignorar este correo.
+                                                Tu contraseña no cambiará
+                                                mientras no utilices este
+                                                enlace.
+                                            </p>
+
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+
+                                <!-- CADUCIDAD -->
 
                                 <p style="
-                                    margin:0;
-                                    color:#39705a;
+                                    margin:28px 0 0;
+                                    color:#6c8b7b;
                                     font-size:11px;
                                     line-height:1.6;
+                                    text-align:center;
                                 ">
                                     Por seguridad, este enlace solo puede
                                     utilizarse una vez.
                                 </p>
 
                             </td>
+
                         </tr>
 
+
+                        <!-- FOOTER -->
+
                         <tr>
-                            <td style="
-                                padding:20px 40px;
-                                background:#f7fcf8;
-                                text-align:center;
-                                color:#39705a;
-                                font-size:11px;
-                            ">
-                                FITFLOW · Mueve el cuerpo. Cambia el día.
+
+                            <td
+                                align="center"
+                                style="
+                                    background:#f7fcf8;
+                                    border-top:1px solid #e5f0e8;
+                                    padding:24px 30px;
+                                "
+                            >
+
+                                <p style="
+                                    margin:0 0 7px;
+                                    color:#083b2a;
+                                    font-size:12px;
+                                    font-weight:800;
+                                    letter-spacing:2px;
+                                ">
+                                    FITFLOW
+                                </p>
+
+                                <p style="
+                                    margin:0;
+                                    color:#6c8b7b;
+                                    font-size:10px;
+                                    line-height:1.5;
+                                ">
+                                    Mueve el cuerpo. Cambia el día.
+                                </p>
+
                             </td>
+
                         </tr>
 
                     </table>
 
+
+                    <!-- TEXTO EXTERIOR -->
+
+                    <p style="
+                        margin:20px 10px 0;
+                        color:#7b9688;
+                        font-size:10px;
+                        line-height:1.5;
+                        text-align:center;
+                    ">
+                        Este correo se ha enviado automáticamente.
+                        Por favor, no respondas a este mensaje.
+                    </p>
+
                 </td>
+
             </tr>
+
         </table>
 
     </body>
+
     </html>
     """
 
@@ -496,6 +737,7 @@ def send_password_reset_email(email, reset_link):
             "Resend error: %s",
             response.text
         )
+
         raise RuntimeError(
             "No se pudo enviar el correo de recuperación."
         )
