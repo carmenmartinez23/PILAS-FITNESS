@@ -247,7 +247,10 @@ def login():
     if g.user:
         return redirect(url_for("index"))
     return render_template("auth.html", mode="login")
-
+    
+@app.route("/restablecer-contrasena")
+def reset_password():
+    return render_template("reset-password.html")
 
 @app.post("/sesion")
 def crear_sesion():
