@@ -514,10 +514,6 @@ footer span {
         gap: 13px
     }
 
-    .nav nav>a:not(.nav-cta) {
-        display: none
-    }
-
     .greeting {
         display: none
     }
