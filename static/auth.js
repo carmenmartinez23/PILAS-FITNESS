@@ -7,6 +7,9 @@ import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     updateProfile,
+    sendPasswordResetEmail,
+    deleteUser,
+    getAdditionalUserInfo,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -17,23 +20,41 @@ const auth = getAuth(app);
 
 
 const ERROR_MESSAGES = {
-    "auth/email-already-in-use": "Ya existe una cuenta con este correo.",
-    "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
-    "auth/invalid-email": "El correo no es válido.",
-    "auth/user-not-found": "No existe ninguna cuenta con este correo.",
-    "auth/wrong-password": "Correo o contraseña incorrectos.",
-    "auth/invalid-credential": "Correo o contraseña incorrectos.",
-    "auth/popup-closed-by-user": "Has cerrado la ventana antes de terminar.",
-    "auth/too-many-requests": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+    "auth/email-already-in-use":
+        "Ya existe una cuenta con este correo.",
+
+    "auth/weak-password":
+        "La contraseña debe tener al menos 6 caracteres.",
+
+    "auth/invalid-email":
+        "El correo no es válido.",
+
+    "auth/user-not-found":
+        "No existe ninguna cuenta con este correo.",
+
+    "auth/wrong-password":
+        "Correo o contraseña incorrectos.",
+
+    "auth/invalid-credential":
+        "Correo o contraseña incorrectos.",
+
+    "auth/popup-closed-by-user":
+        "Has cerrado la ventana antes de terminar.",
+
+    "auth/too-many-requests":
+        "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
 };
 
 
 function showError(message) {
 
-    const box = document.getElementById("auth-error");
+    const box =
+        document.getElementById("auth-error");
 
     if (box) {
+
         box.textContent = message;
+
         box.hidden = !message;
     }
 }
@@ -45,7 +66,8 @@ function setLoading(button, loading) {
 
     button.disabled = loading;
 
-    button.dataset.originalText ??= button.textContent;
+    button.dataset.originalText ??=
+        button.textContent;
 
     button.textContent =
         loading
@@ -54,41 +76,44 @@ function setLoading(button, loading) {
 }
 
 
-async function completeLogin(userCredential) {
+async function completeLogin(userCredential, promoCode = null) {
+    const idToken = await userCredential.user.getIdToken();
 
-    const idToken =
-        await userCredential.user.getIdToken();
-
-    const response =
-        await fetch("/sesion", {
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-Token": window.CSRF_TOKEN,
-            },
-
-            body: JSON.stringify({
-                idToken
-            }),
-        });
-
+    const response = await fetch("/sesion", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": window.CSRF_TOKEN,
+        },
+        body: JSON.stringify({
+            idToken,
+            promoCode,
+        }),
+    });
 
     if (!response.ok) {
-        throw new Error("session-failed");
+        let message = "No se pudo iniciar la sesión.";
+
+        try {
+            const data = await response.json();
+            if (data.message) {
+                message = data.message;
+            }
+        } catch (_) {
+            // La respuesta no era JSON.
+        }
+
+        throw new Error(message);
     }
 
-
-    const params =
-        new URLSearchParams(
-            window.location.search
-        );
-
-
-    window.location.href =
-        params.get("next") || "/";
+    const params = new URLSearchParams(window.location.search);
+    window.location.href = params.get("next") || "/";
 }
 
+
+/* =========================
+   LOGIN / REGISTRO
+========================= */
 
 const form =
     document.getElementById("auth-form");
@@ -99,7 +124,6 @@ if (form) {
     const mode =
         form.dataset.mode;
 
-
     form.addEventListener(
         "submit",
         async (event) => {
@@ -108,51 +132,51 @@ if (form) {
 
             showError("");
 
-
             const submitButton =
-                form.querySelector("button.submit");
-
+                form.querySelector(
+                    "button.submit"
+                );
 
             setLoading(
                 submitButton,
                 true
             );
 
-
             const email =
                 form.email.value.trim();
-
 
             const password =
                 form.password.value;
 
-
             try {
 
                 if (mode === "register") {
+    const promoCode = form.promoCode.value.trim().toUpperCase();
 
-                    const credential =
-                        await createUserWithEmailAndPassword(
-                            auth,
-                            email,
-                            password
+    const credential = await createUserWithEmailAndPassword(
+        auth, email, password
+    );
+
+    try {
+                    await updateProfile(credential.user, {
+                        displayName: form.name.value.trim()
+                    });
+
+                    await completeLogin(credential, promoCode);
+
+                } catch (error) {
+                    try {
+                        await deleteUser(credential.user);
+                    } catch (deleteError) {
+                        console.error(
+                            "No se pudo eliminar la cuenta Firebase tras fallar el registro:",
+                            deleteError
                         );
+                    }
 
-
-                    await updateProfile(
-                        credential.user,
-                        {
-                            displayName:
-                                form.name.value.trim()
-                        }
-                    );
-
-
-                    await completeLogin(
-                        credential
-                    );
-
-                } else {
+                    throw error;
+                }
+            } else {
 
                     const credential =
                         await signInWithEmailAndPassword(
@@ -160,7 +184,6 @@ if (form) {
                             email,
                             password
                         );
-
 
                     await completeLogin(
                         credential
@@ -174,9 +197,9 @@ if (form) {
                     error
                 );
 
-
                 showError(
                     ERROR_MESSAGES[error.code] ||
+                    error.message ||
                     "Algo salió mal. Inténtalo de nuevo."
                 );
 
@@ -192,9 +215,9 @@ if (form) {
 }
 
 
-/*
- * RECUPERAR CONTRASEÑA
- */
+/* =========================
+   RECUPERAR CONTRASEÑA
+========================= */
 
 const forgotPassword =
     document.getElementById(
@@ -212,19 +235,17 @@ if (forgotPassword) {
 
             showError("");
 
-
             const emailInput =
                 document.querySelector(
                     '#auth-form input[name="email"]'
                 );
 
-
-            if (!emailInput) return;
-
+            if (!emailInput) {
+                return;
+            }
 
             const email =
                 emailInput.value.trim();
-
 
             if (!email) {
 
@@ -232,73 +253,26 @@ if (forgotPassword) {
                     "Introduce tu correo electrónico para recuperar la contraseña."
                 );
 
-
                 emailInput.focus();
 
                 return;
             }
-
 
             try {
 
                 forgotPassword.textContent =
                     "Enviando…";
 
-
                 forgotPassword.style.pointerEvents =
                     "none";
 
-
-                const response =
-                    await fetch(
-                        "/recuperar-contrasena",
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json",
-
-                                "X-CSRF-Token":
-                                    window.CSRF_TOKEN,
-                            },
-
-                            body: JSON.stringify({
-                                email
-                            }),
-                        }
-                    );
-
-
-                const responseText =
-                    await response.text();
-                
-                let data = {};
-                
-                try {
-                    data = JSON.parse(responseText);
-                } catch (error) {
-                    console.error(
-                        "Respuesta no JSON del servidor:",
-                        responseText
-                    );
-                
-                    throw new Error(
-                        "El servidor ha devuelto un error. Revisa los logs de Render."
-                    );
-                }
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.message ||
-                        "No se ha podido enviar el correo."
-                    );
-                }
-
+                await sendPasswordResetEmail(
+                    auth,
+                    email
+                );
 
                 showError(
-                    "Si existe una cuenta con ese correo, recibirás un mensaje para restablecer tu contraseña. Revisa también la carpeta de spam."
+                    "Te hemos enviado un correo para cambiar tu contraseña. Revisa también la carpeta de spam."
                 );
 
             } catch (error) {
@@ -308,9 +282,8 @@ if (forgotPassword) {
                     error
                 );
 
-
                 showError(
-                    error.message ||
+                    ERROR_MESSAGES[error.code] ||
                     "No se ha podido enviar el correo de recuperación."
                 );
 
@@ -327,9 +300,9 @@ if (forgotPassword) {
 }
 
 
-/*
- * LOGIN CON GOOGLE
- */
+/* =========================
+   GOOGLE
+========================= */
 
 const googleButton =
     document.getElementById(
@@ -345,7 +318,6 @@ if (googleButton) {
 
             showError("");
 
-
             try {
 
                 const credential =
@@ -353,7 +325,6 @@ if (googleButton) {
                         auth,
                         new GoogleAuthProvider()
                     );
-
 
                 await completeLogin(
                     credential
@@ -365,7 +336,6 @@ if (googleButton) {
                     "Error con Google:",
                     error
                 );
-
 
                 showError(
                     ERROR_MESSAGES[error.code] ||
