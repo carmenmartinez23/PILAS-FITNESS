@@ -3,6 +3,7 @@ import os
 import secrets
 import smtplib
 import sqlite3
+import requests
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 import locale
