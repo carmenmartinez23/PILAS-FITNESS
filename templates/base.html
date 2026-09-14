@@ -16,7 +16,7 @@
 <body>
   <header class="nav"><a class="brand" href="{{ url_for('index') }}"><span>F</span> FITFLOW</a>
     <nav>
-<a href="{{ url_for('index') }}#clases">CLASES PRUEBA</a>
+<a href="{{ url_for('index') }}#clases">Clases</a>
       {% if g.user %}<a href="{{ url_for('dashboard') }}">Mis reservas</a><span class="greeting">Hola, {{
         g.user['name'].split(' ')[0] }}</span>
       <form action="{{ url_for('logout') }}" method="post" id="logout-form"><input type="hidden" name="csrf_token"
