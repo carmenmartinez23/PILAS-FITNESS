@@ -623,3 +623,45 @@ footer span {
 .forgot-password a:hover {
     opacity: 0.7;
 }
+.reset-message {
+    color: var(--muted);
+    line-height: 1.6;
+    font-size: .88rem;
+}
+
+.reset-account {
+    color: var(--green-dark);
+    background: var(--green-soft);
+    padding: 12px 15px;
+    font-size: .78rem;
+    margin: 20px 0;
+}
+
+.reset-result {
+    margin-top: 25px;
+}
+
+.reset-result h2 {
+    font-size: 2rem;
+    letter-spacing: -.05em;
+    margin: 15px 0 10px;
+}
+
+.reset-result p {
+    color: var(--muted);
+    line-height: 1.6;
+    font-size: .88rem;
+    margin-bottom: 25px;
+}
+
+.reset-success-icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--green);
+    color: var(--ink);
+    font-weight: 800;
+    font-size: 1.3rem;
+}
