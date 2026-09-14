@@ -270,8 +270,23 @@ if (forgotPassword) {
                     );
 
 
-                const data =
-                    await response.json();
+                const responseText =
+                    await response.text();
+                
+                    let data = {};
+                    
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (error) {
+                        console.error(
+                            "Respuesta no JSON del servidor:",
+                            responseText
+                        );
+                    
+                        throw new Error(
+                            "El servidor ha devuelto un error. Revisa los logs de Render."
+                        );
+                    }
 
 
                 if (!response.ok) {
