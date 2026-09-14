@@ -125,6 +125,12 @@ def init_db():
             CREATE TABLE IF NOT EXISTS classes (id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, trainer TEXT NOT NULL, description TEXT NOT NULL, class_date DATE NOT NULL, class_time TIME NOT NULL, duration INTEGER NOT NULL, capacity INTEGER NOT NULL CHECK(capacity > 0), image_url TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS bookings (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, class_id));
             CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                id BIGSERIAL PRIMARY KEY,
+                code TEXT NOT NULL UNIQUE,
+                user_id BIGINT UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """
             for statement in statements.split(";"):
                 if statement.strip():
@@ -158,6 +164,12 @@ def init_db():
                 UNIQUE(user_id, class_id)
             );
             CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """)
         class_count = connection.execute("SELECT COUNT(*) AS total FROM classes").fetchone()["total"]
         seeded = None
@@ -208,25 +220,308 @@ def inject_globals():
     return {"csrf_token": session.get("csrf_token")}
 
 
-def send_confirmation(user, fitness_class):
-    business_email = os.getenv("BUSINESS_EMAIL")
-    sender = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "no-reply@fitflow.local"))
-    details = f"{fitness_class['title']} · {fitness_class['class_date']} a las {fitness_class['class_time']}"
-    recipients = [user["email"]] + ([business_email] if business_email else [])
-    message = EmailMessage()
-    message["Subject"] = f"Reserva confirmada · {fitness_class['title']}"
-    message["From"] = sender
-    message["To"] = ", ".join(recipients)
-    message.set_content(f"Hola {user['name']},\n\nTu plaza está confirmada para: {details}.\n\n¡Nos vemos pronto!\nFitFlow")
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        app.logger.info("SMTP no configurado. Confirmación simulada para %s: %s", recipients, details)
-        return
-    with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587")), timeout=15) as server:
-        server.starttls()
-        server.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
-        server.send_message(message)
+def send_booking_confirmation_email(user, fitness_class):
+    resend_api_key = os.getenv("RESEND_API_KEY")
 
+    if not resend_api_key:
+        raise RuntimeError(
+            "Falta la variable RESEND_API_KEY en Render."
+        )
+
+    sender = os.getenv(
+        "RESEND_FROM",
+        "FitFlow <onboarding@resend.dev>"
+    )
+
+    class_date = fitness_class["class_date"]
+    class_time = fitness_class["class_time"]
+
+    try:
+        formatted_date = fecha_es(class_date)
+    except Exception:
+        formatted_date = str(class_date)
+
+    html = f"""
+    <!doctype html>
+    <html lang="es">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+        <title>Reserva confirmada · FitFlow</title>
+    </head>
+
+    <body style="
+        margin:0;
+        padding:0;
+        background:#eef8f1;
+        font-family:Arial, Helvetica, sans-serif;
+        color:#083b2a;
+    ">
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="background:#eef8f1;padding:45px 15px;">
+
+            <tr>
+                <td align="center">
+
+                    <table width="100%" cellpadding="0" cellspacing="0"
+                           border="0"
+                           style="
+                               max-width:580px;
+                               background:#ffffff;
+                               border-radius:20px;
+                               overflow:hidden;
+                               box-shadow:0 8px 30px rgba(8,59,42,0.08);
+                           ">
+
+                        <!-- CABECERA -->
+
+                        <tr>
+                            <td align="center"
+                                style="
+                                    background:#087542;
+                                    padding:32px 30px;
+                                ">
+
+                                <table cellpadding="0"
+                                       cellspacing="0"
+                                       border="0">
+
+                                    <tr>
+
+                                        <td align="center"
+                                            valign="middle"
+                                            style="
+                                                width:42px;
+                                                height:42px;
+                                                background:#8fdb4d;
+                                                border-radius:50%;
+                                                color:#083b2a;
+                                                font-size:22px;
+                                                font-weight:800;
+                                                line-height:42px;
+                                            ">
+                                            F
+                                        </td>
+
+                                        <td style="
+                                            padding-left:12px;
+                                            color:#ffffff;
+                                            font-size:16px;
+                                            font-weight:800;
+                                            letter-spacing:3px;
+                                        ">
+                                            FITFLOW
+                                        </td>
+
+                                    </tr>
+
+                                </table>
+
+                            </td>
+                        </tr>
+
+
+                        <!-- CONTENIDO -->
+
+                        <tr>
+                            <td style="padding:48px 42px 42px;">
+
+                                <p style="
+                                    margin:0 0 14px;
+                                    color:#39705a;
+                                    font-size:11px;
+                                    font-weight:700;
+                                    letter-spacing:2.5px;
+                                    text-transform:uppercase;
+                                ">
+                                    RESERVA CONFIRMADA
+                                </p>
+
+                                <h1 style="
+                                    margin:0 0 22px;
+                                    color:#083b2a;
+                                    font-size:34px;
+                                    line-height:1.12;
+                                    font-weight:800;
+                                    letter-spacing:-1.2px;
+                                ">
+                                    ¡Tu plaza está<br>
+                                    reservada!
+                                </h1>
+
+                                <p style="
+                                    margin:0 0 28px;
+                                    color:#39705a;
+                                    font-size:15px;
+                                    line-height:1.7;
+                                ">
+                                    Hola {user["name"]}, tu reserva se ha
+                                    realizado correctamente.
+                                    ¡Te esperamos en clase!
+                                </p>
+
+
+                                <!-- DATOS DE LA CLASE -->
+
+                                <table width="100%"
+                                       cellpadding="0"
+                                       cellspacing="0"
+                                       border="0"
+                                       style="margin-bottom:28px;">
+
+                                    <tr>
+                                        <td style="
+                                            background:#eef8f1;
+                                            border-left:4px solid #8fdb4d;
+                                            border-radius:8px;
+                                            padding:18px;
+                                        ">
+
+                                            <p style="
+                                                margin:0 0 8px;
+                                                color:#39705a;
+                                                font-size:10px;
+                                                font-weight:700;
+                                                letter-spacing:1.5px;
+                                                text-transform:uppercase;
+                                            ">
+                                                CLASE
+                                            </p>
+
+                                            <p style="
+                                                margin:0 0 14px;
+                                                color:#083b2a;
+                                                font-size:20px;
+                                                font-weight:800;
+                                            ">
+                                                {fitness_class["title"]}
+                                            </p>
+
+                                            <p style="
+                                                margin:0 0 6px;
+                                                color:#39705a;
+                                                font-size:13px;
+                                            ">
+                                                📅 {formatted_date}
+                                            </p>
+
+                                            <p style="
+                                                margin:0 0 6px;
+                                                color:#39705a;
+                                                font-size:13px;
+                                            ">
+                                                🕐 {class_time}
+                                            </p>
+
+                                            <p style="
+                                                margin:0;
+                                                color:#39705a;
+                                                font-size:13px;
+                                            ">
+                                                👤 {fitness_class["trainer"]}
+                                            </p>
+
+                                        </td>
+                                    </tr>
+
+                                </table>
+
+
+                                <p style="
+                                    margin:0;
+                                    color:#6c8b7b;
+                                    font-size:12px;
+                                    line-height:1.6;
+                                    text-align:center;
+                                ">
+                                    Si finalmente no puedes asistir,
+                                    recuerda cancelar tu reserva desde
+                                    tu área de miembro.
+                                </p>
+
+                            </td>
+                        </tr>
+
+
+                        <!-- FOOTER -->
+
+                        <tr>
+                            <td align="center"
+                                style="
+                                    background:#f7fcf8;
+                                    border-top:1px solid #e5f0e8;
+                                    padding:24px 30px;
+                                ">
+
+                                <p style="
+                                    margin:0 0 7px;
+                                    color:#083b2a;
+                                    font-size:12px;
+                                    font-weight:800;
+                                    letter-spacing:2px;
+                                ">
+                                    FITFLOW
+                                </p>
+
+                                <p style="
+                                    margin:0;
+                                    color:#6c8b7b;
+                                    font-size:10px;
+                                ">
+                                    Mueve el cuerpo. Cambia el día.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                    <p style="
+                        margin:20px 10px 0;
+                        color:#7b9688;
+                        font-size:10px;
+                        text-align:center;
+                    ">
+                        Este correo se ha enviado automáticamente.
+                    </p>
+
+                </td>
+            </tr>
+
+        </table>
+
+    </body>
+    </html>
+    """
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": sender,
+            "to": [user["email"]],
+            "subject": f"Reserva confirmada · {fitness_class['title']}",
+            "html": html
+        },
+        timeout=15
+    )
+
+    if not response.ok:
+        app.logger.error(
+            "Resend booking confirmation error: %s",
+            response.text
+        )
+
+        raise RuntimeError(
+            "No se pudo enviar el correo de confirmación."
+        )
+    
 def generate_password_reset_link(email):
     try:
         action_code_settings = ActionCodeSettings(
@@ -898,7 +1193,7 @@ def book_class(class_id):
         connection.execute("COMMIT")
 
         try:
-            send_confirmation(g.user, fitness_class)
+            send_booking_confirmation_email(g.user, fitness_class)
         except Exception:
             app.logger.exception(
                 "La reserva se creó, pero el email no se pudo enviar."
