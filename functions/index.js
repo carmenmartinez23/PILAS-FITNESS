@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
 
 initializeApp();
 
@@ -429,7 +430,9 @@ async function sendBookingCancellationEmail(user, classData) {
         html: html
     });
 }
-exports.reserveClass = onCall(async (request) => {
+exports.reserveClass = onCall(
+    { secrets: [resendApiKey] },
+    async (request) => {
 
     if (!request.auth) {
         throw new HttpsError(
@@ -441,6 +444,15 @@ exports.reserveClass = onCall(async (request) => {
     const userId = request.auth.uid;
     const { classId } = request.data;
 
+    const authUser = await getAuth().getUser(userId);
+
+    const user = {
+        name:
+            authUser.displayName ||
+            authUser.email?.split("@")[0] ||
+            "Miembro",
+        email: authUser.email
+    };
     if (!classId || typeof classId !== "string") {
         throw new HttpsError(
             "invalid-argument",
@@ -449,6 +461,7 @@ exports.reserveClass = onCall(async (request) => {
     }
 
     const classRef = db.collection("classes").doc(classId);
+    let classDataForEmail = null;
     const bookingId = `${classId}_${userId}`;
 
     const bookingRef = db
@@ -474,6 +487,9 @@ exports.reserveClass = onCall(async (request) => {
 
             const classData =
                 classSnapshot.data();
+            classDataForEmail = {
+                ...classData
+            };
 
             if (bookingSnapshot.exists) {
                 throw new HttpsError(
@@ -506,7 +522,17 @@ exports.reserveClass = onCall(async (request) => {
             });
 
         });
-
+        try {
+            await sendBookingCancellationEmail(
+                user,
+                classDataForEmail
+            );
+        } catch (error) {
+            console.error(
+                "La reserva se canceló correctamente, pero no se pudo enviar el email:",
+                error
+            );
+        }
         return {
             success: true,
             message: "Reserva realizada correctamente.",
@@ -532,7 +558,9 @@ exports.reserveClass = onCall(async (request) => {
 });
 
 
-exports.cancelClass = onCall(async (request) => {
+exports.cancelClass = onCall(
+    { secrets: [resendApiKey] },
+    async (request) => {
 
     if (!request.auth) {
         throw new HttpsError(
@@ -607,6 +635,18 @@ exports.cancelClass = onCall(async (request) => {
             });
 
         });
+
+        try {
+            await sendBookingConfirmationEmail(
+                user,
+                classDataForEmail
+            );
+        } catch (error) {
+            console.error(
+                "La reserva se creó correctamente, pero no se pudo enviar el email:",
+                error
+            );
+        }
 
         return {
             success: true,
