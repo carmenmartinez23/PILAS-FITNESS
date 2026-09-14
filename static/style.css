@@ -64,6 +64,19 @@ a {
     font-weight: 700
 }
 
+.nav nav > a {
+    background: var(--green-dark);
+    color: #fff;
+    padding: 13px 20px;
+    border-radius: 2px;
+    transition: background-color .2s ease, color .2s ease;
+}
+
+.nav nav > a:hover {
+    background: #fff;
+    color: var(--green-dark);
+}
+
 .nav-cta,
 .primary {
     background: var(--green-dark);
