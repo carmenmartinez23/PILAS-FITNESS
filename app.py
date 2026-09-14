@@ -224,6 +224,280 @@ def send_confirmation(user, fitness_class):
         server.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
         server.send_message(message)
 
+def generate_password_reset_link(email):
+    firebase_api_key = os.getenv("FIREBASE_WEB_API_KEY")
+
+    if not firebase_api_key:
+        raise RuntimeError(
+            "Falta la variable FIREBASE_WEB_API_KEY en Render."
+        )
+
+    response = requests.post(
+        "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode",
+        params={
+            "key": firebase_api_key
+        },
+        json={
+            "requestType": "PASSWORD_RESET",
+            "email": email,
+            "continueUrl": "https://pilas-fitness.onrender.com/restablecer-contrasena"
+        },
+        timeout=15
+    )
+
+    if not response.ok:
+        app.logger.error(
+            "Firebase password reset error: %s",
+            response.text
+        )
+        raise RuntimeError(
+            "No se pudo generar el enlace de recuperación."
+        )
+
+    data = response.json()
+
+    oob_code = data.get("oobCode")
+
+    if not oob_code:
+        raise RuntimeError(
+            "Firebase no devolvió el código de recuperación."
+        )
+
+    return (
+        "https://pilas-fitness.onrender.com/"
+        "restablecer-contrasena?mode=resetPassword"
+        f"&oobCode={oob_code}"
+        f"&apiKey={firebase_api_key}"
+    )
+
+
+def send_password_reset_email(email, reset_link):
+    resend_api_key = os.getenv("RESEND_API_KEY")
+
+    if not resend_api_key:
+        raise RuntimeError(
+            "Falta la variable RESEND_API_KEY en Render."
+        )
+
+    sender = os.getenv(
+        "RESEND_FROM",
+        "FitFlow <onboarding@resend.dev>"
+    )
+
+    html = f"""
+    <!doctype html>
+    <html lang="es">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Restablece tu contraseña · FitFlow</title>
+    </head>
+
+    <body style="
+        margin:0;
+        padding:0;
+        background:#ddf7e5;
+        font-family:Arial,Helvetica,sans-serif;
+        color:#083b2a;
+    ">
+
+        <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="background:#ddf7e5;padding:40px 15px;"
+        >
+            <tr>
+                <td align="center">
+
+                    <table
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        style="
+                            max-width:560px;
+                            background:#ffffff;
+                            border-radius:18px;
+                            overflow:hidden;
+                        "
+                    >
+
+                        <tr>
+                            <td
+                                style="
+                                    background:#087542;
+                                    padding:28px 35px;
+                                    text-align:center;
+                                "
+                            >
+
+                                <div style="
+                                    display:inline-block;
+                                    width:42px;
+                                    height:42px;
+                                    line-height:42px;
+                                    border-radius:50%;
+                                    background:#8fdb4d;
+                                    color:#083b2a;
+                                    font-size:22px;
+                                    font-weight:800;
+                                ">
+                                    F
+                                </div>
+
+                                <div style="
+                                    margin-top:10px;
+                                    color:#ffffff;
+                                    font-size:14px;
+                                    font-weight:800;
+                                    letter-spacing:3px;
+                                ">
+                                    FITFLOW
+                                </div>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="padding:45px 40px 40px;">
+
+                                <div style="
+                                    color:#39705a;
+                                    font-size:11px;
+                                    font-weight:bold;
+                                    letter-spacing:2px;
+                                    margin-bottom:14px;
+                                ">
+                                    FITFLOW MEMBER
+                                </div>
+
+                                <h1 style="
+                                    margin:0 0 20px;
+                                    color:#083b2a;
+                                    font-size:32px;
+                                    line-height:1.15;
+                                ">
+                                    ¿Has olvidado<br>
+                                    tu contraseña?
+                                </h1>
+
+                                <p style="
+                                    margin:0 0 25px;
+                                    color:#39705a;
+                                    font-size:15px;
+                                    line-height:1.7;
+                                ">
+                                    No pasa nada. Puedes crear una nueva
+                                    contraseña para volver a acceder a tu
+                                    cuenta de FitFlow.
+                                </p>
+
+                                <table
+                                    cellpadding="0"
+                                    cellspacing="0"
+                                    border="0"
+                                    width="100%"
+                                >
+                                    <tr>
+                                        <td align="center">
+
+                                            <a
+                                                href="{reset_link}"
+                                                style="
+                                                    display:inline-block;
+                                                    background:#087542;
+                                                    color:#ffffff;
+                                                    text-decoration:none;
+                                                    padding:15px 25px;
+                                                    border-radius:8px;
+                                                    font-size:14px;
+                                                    font-weight:bold;
+                                                "
+                                            >
+                                                Restablecer contraseña →
+                                            </a>
+
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <p style="
+                                    margin:30px 0 0;
+                                    color:#39705a;
+                                    font-size:12px;
+                                    line-height:1.6;
+                                ">
+                                    Si tú no has solicitado cambiar tu
+                                    contraseña, puedes ignorar este correo.
+                                    Tu cuenta seguirá siendo segura.
+                                </p>
+
+                                <div style="
+                                    height:1px;
+                                    background:#ddf7e5;
+                                    margin:30px 0 20px;
+                                "></div>
+
+                                <p style="
+                                    margin:0;
+                                    color:#39705a;
+                                    font-size:11px;
+                                    line-height:1.6;
+                                ">
+                                    Por seguridad, este enlace solo puede
+                                    utilizarse una vez.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="
+                                padding:20px 40px;
+                                background:#f7fcf8;
+                                text-align:center;
+                                color:#39705a;
+                                font-size:11px;
+                            ">
+                                FITFLOW · Mueve el cuerpo. Cambia el día.
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    """
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": sender,
+            "to": [email],
+            "subject": "Restablece tu contraseña · FitFlow",
+            "html": html
+        },
+        timeout=15
+    )
+
+    if not response.ok:
+        app.logger.error(
+            "Resend error: %s",
+            response.text
+        )
+        raise RuntimeError(
+            "No se pudo enviar el correo de recuperación."
+        )
 
 @app.route("/")
 def index():
