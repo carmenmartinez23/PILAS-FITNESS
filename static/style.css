@@ -75,6 +75,7 @@ a {
 .nav nav > a:hover {
     background: #fff;
     color: var(--green-dark);
+    border: 1px solid var(--green-dark);
 }
 
 .nav-cta,
