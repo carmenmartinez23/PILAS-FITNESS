@@ -10,6 +10,7 @@ import locale
 from email.message import EmailMessage
 from functools import wraps
 
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -26,6 +27,7 @@ except ImportError:
 import firebase_admin
 from firebase_admin import firestore
 from firebase_admin import credentials, auth as firebase_auth
+from firebase_admin.auth import ActionCodeSettings
 load_dotenv()
 
 app = Flask(__name__)
@@ -227,12 +229,14 @@ def send_confirmation(user, fitness_class):
 
 def generate_password_reset_link(email):
     try:
+        action_code_settings = ActionCodeSettings(
+            url="https://pilas-fitness.onrender.com/restablecer-contrasena",
+            handle_code_in_app=True
+        )
+
         reset_link = firebase_auth.generate_password_reset_link(
             email,
-            action_code_settings={
-                "url": "https://pilas-fitness.onrender.com/restablecer-contrasena",
-                "handle_code_in_app": True,
-            }
+            action_code_settings=action_code_settings
         )
 
         return reset_link
