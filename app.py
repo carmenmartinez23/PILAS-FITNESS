@@ -1449,6 +1449,29 @@ def crear_sesion():
     ).fetchone()
 
     # ---------------------------------------------------------
+    # USUARIO QUE YA EXISTE
+    # ---------------------------------------------------------
+
+    if user:
+        user_id = user["id"]
+
+        connection.execute(
+            """
+            UPDATE users
+            SET name = ?, email = ?
+            WHERE id = ?
+            """,
+            (name, email, user_id)
+        )
+
+        session["user_id"] = user_id
+
+        return {
+            "success": True,
+            "ok": True
+        }
+
+    # ---------------------------------------------------------
     # USUARIO NUEVO
     # ---------------------------------------------------------
 
@@ -1480,80 +1503,38 @@ def crear_sesion():
             "message": "Este código promocional ya ha sido utilizado."
         }, 409
 
-
-    # ---------------------------------------------------------
-    # USUARIO QUE YA EXISTE
-    # ---------------------------------------------------------
-
-    if user:
-        user_id = user["id"]
-
-        connection.execute(
-            """
-            UPDATE users
-            SET name = ?, email = ?
-            WHERE id = ?
-            """,
-            (name, email, user_id)
-        )
-
-        session["user_id"] = user_id
-
-        return {
-            "success": True,
-            "ok": True
-        }
-
-
     # ---------------------------------------------------------
     # CREACIÓN ATÓMICA DEL USUARIO + CÓDIGO
     # ---------------------------------------------------------
-
     connection.execute(
         "BEGIN" if connection.postgres else "BEGIN IMMEDIATE"
-    )
-
+        )
     try:
         cursor = connection.execute(
             """
-            INSERT INTO users (
-                firebase_uid,
-                name,
-                email
-            )
-            VALUES (?, ?, ?)
-            RETURNING id
-            """,
-            (uid, name, email)
-        )
-
+            INSERT INTO users (firebase_uid,name,email)VALUES (?, ?, ?)RETURNING id""",(uid, name, email))
         user_id = cursor.fetchone()["id"]
-
         # Intentamos reclamar el código.
         result = connection.execute(
             """
             UPDATE promo_codes
             SET user_id = ?
             WHERE code = ?
-              AND user_id IS NULL
+            AND user_id IS NULL
             """,
             (user_id, promo_code)
-        )
-
+            )
         if result.rowcount != 1:
             connection.execute("ROLLBACK")
-
             return {
                 "success": False,
                 "message": "Este código promocional ya ha sido utilizado."
-            }, 409
+                }, 409
 
         connection.execute("COMMIT")
-
     except Exception:
         connection.execute("ROLLBACK")
         raise
-
     session["user_id"] = user_id
     try:
         send_registration_confirmation_email(
@@ -1568,11 +1549,10 @@ def crear_sesion():
             "No se pudo enviar el correo de confirmación de registro: %s",
             error
         )
-
-        return {
-            "success": True,
-            "ok": True
-        }
+    return {
+        "success": True,
+        "ok": True
+    }
 
 @app.post("/salir")
 def logout():
