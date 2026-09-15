@@ -4,3 +4,5 @@ gunicorn>=23,<24
 psycopg[binary]>=3.2,<4.0
 firebase-admin>=6.0,<7.0
 requests>=2.32,<3.0
+gspread>=6.0,<7.0
+google-auth>=3.0,<4.0
