@@ -300,7 +300,7 @@ def load_user_and_csrf():
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
 
-    if request.method == "POST":
+    if request.method == "POST" and request.path != "/sesion":
         token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
 
         if token != session["csrf_token"]:
