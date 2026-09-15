@@ -1682,7 +1682,10 @@ def book_class(class_id):
         )
 
         connection.execute("COMMIT")
-
+        registrar_reserva_en_sheets(
+            g.user,
+            fitness_class
+        )
         try:
             send_booking_confirmation_email(g.user, fitness_class)
         except Exception:
@@ -1715,6 +1718,33 @@ def get_classes():
         dict(class_item)
         for class_item in classes
     ]
+def registrar_reserva_en_sheets(user, fitness_class):
+    try:
+        hoja = google_sheet.worksheet("RESERVAS")
+
+        hoja.append_row(
+            [
+                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                user["name"],
+                user["email"],
+                fitness_class["title"],
+                fitness_class["trainer"],
+                f'{fitness_class["class_date"]} {fitness_class["class_time"]}',
+            ],
+            value_input_option="USER_ENTERED",
+        )
+
+        app.logger.info(
+            "Reserva registrada en Google Sheets: %s - %s",
+            user["email"],
+            fitness_class["title"]
+        )
+
+    except Exception as error:
+        app.logger.error(
+            "No se pudo registrar la reserva en Google Sheets: %s",
+            error
+        )
 
 @app.route("/mis-reservas")
 @login_required
