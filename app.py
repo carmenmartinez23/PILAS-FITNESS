@@ -1453,24 +1453,11 @@ def crear_sesion():
 
         session["user_id"] = user_id
 
-        try:
-            send_registration_confirmation_email(
-                {
-                    "name": name,
-                    "email": email
-                },
-                promo_code
-            )
-        except Exception as error:
-            app.logger.error(
-                "No se pudo enviar el correo de confirmación de registro: %s",
-                error
-            )
-
         return {
             "success": True,
             "ok": True
         }
+
 
     # ---------------------------------------------------------
     # USUARIO NUEVO
@@ -1554,11 +1541,24 @@ def crear_sesion():
         raise
 
     session["user_id"] = user_id
+    try:
+        send_registration_confirmation_email(
+            {
+                "name": name,
+                "email": email
+            },
+            promo_code
+        )
+    except Exception as error:
+        app.logger.error(
+            "No se pudo enviar el correo de confirmación de registro: %s",
+            error
+        )
 
-    return {
-        "success": True,
-        "ok": True
-    }
+        return {
+            "success": True,
+            "ok": True
+        }
 
 @app.post("/salir")
 def logout():
