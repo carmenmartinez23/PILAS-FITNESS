@@ -9,6 +9,8 @@ from datetime import date, datetime, timedelta
 import locale
 from email.message import EmailMessage
 from functools import wraps
+import gspread
+from google.oauth2.service_account import Credentials
 
 
 try:
@@ -39,7 +41,23 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
 )
 
+# Google Sheets
+GOOGLE_SHEETS_ID = "1Nl_LtlQX-nVc4yUd0yd-HsQwceFXTe9CrUPdsKx449s"
 
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+google_credentials = Credentials.from_service_account_info(
+    json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]),
+    scopes=GOOGLE_SCOPES,
+)
+
+google_sheets = gspread.authorize(google_credentials)
+
+google_sheet = google_sheets.open_by_key(GOOGLE_SHEETS_ID)
+print("✅ Google Sheets conectado:", google_sheet.title)
 def init_firebase_admin():
     if firebase_admin._apps:
         return
