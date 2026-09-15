@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}{% if mode == 'login' %}Entrar{% else %}Crear cuenta{% endif %} · Revitalízate{%
+{% extends 'base.html' %}{% block title %}{% if mode == 'login' %}Entrar{% else %}Crear cuenta{% endif %} · REVITALÍZATE{%
 endblock %}{% block content %}<section class="auth-page">
     <div class="auth-photo"><img
             src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=85"
@@ -6,7 +6,7 @@ endblock %}{% block content %}<section class="auth-page">
         <p>Tu mejor versión<br><em>empieza hoy.</em></p>
     </div>
     <div class="auth-card">
-        <p class="eyebrow">Revitalízate Miembro</p>
+        <p class="eyebrow">REVITALÍZATE Miembro</p>
         <h1>{% if mode == 'login' %}Qué bien verte<br>de nuevo.{% else %}Empieza a<br>moverte.{% endif %}</h1>
         <p id="auth-error" class="flash error" hidden></p>
         <form id="auth-form" data-mode="{{ mode }}">
