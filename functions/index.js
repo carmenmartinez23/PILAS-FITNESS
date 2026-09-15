@@ -21,7 +21,7 @@ async function sendResendEmail({ to, subject, html }) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                from: "Revitalízate <cuentas@pilas-fitness.es>",
+                from: "REVITALÍZATE <cuentas@pilas-fitness.es>",
                 to: [to],
                 subject: subject,
                 html: html
@@ -110,7 +110,7 @@ function createBookingEmailHtml({
         ${isCancellation
             ? "Reserva cancelada"
             : "Reserva confirmada"
-        } · Revitalízate
+        } · REVITALÍZATE
     </title>
 
 </head>
@@ -196,7 +196,7 @@ function createBookingEmailHtml({
     font-weight:800;
     letter-spacing:3px;
 ">
-    Revitalízate
+    REVITALÍZATE
 </td>
 
 </tr>
@@ -359,7 +359,7 @@ function createBookingEmailHtml({
     font-weight:800;
     letter-spacing:2px;
 ">
-    Revitalízate
+    REVITALÍZATE
 </p>
 
 
