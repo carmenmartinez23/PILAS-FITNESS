@@ -1503,9 +1503,34 @@ def crear_sesion():
     connection = db()
 
     user = connection.execute(
-        "SELECT * FROM users WHERE firebase_uid = ?",
-        (uid,)
+    "SELECT * FROM users WHERE firebase_uid = ?",
+    (uid,)
     ).fetchone()
+
+    # Si no encontramos el UID, buscamos por email.
+    # Esto permite recuperar usuarios existentes aunque
+    # el UID de Firebase no coincida con el registrado anteriormente.
+    if not user and email:
+        user = connection.execute(
+            "SELECT * FROM users WHERE LOWER(email) = ?",
+            (email,)
+        ).fetchone()
+
+        if user:
+            # Asociamos el UID actual de Firebase a la cuenta existente.
+            connection.execute(
+                """
+                UPDATE users
+                SET firebase_uid = ?, name = ?, email = ?
+                WHERE id = ?
+                """,
+                (uid, name, email, user["id"])
+            )
+
+            user = connection.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (user["id"],)
+            ).fetchone()
 
 # Log de depuración para verificar si se encontró un usuario
     app.logger.info(
