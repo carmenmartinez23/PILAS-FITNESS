@@ -59,6 +59,33 @@ google_sheets = gspread.authorize(google_credentials)
 google_sheet = google_sheets.open_by_key(GOOGLE_SHEETS_ID)
 print("✅ Google Sheets conectado:", google_sheet.title)
 print("📋 Hojas disponibles:", [ws.title for ws in google_sheet.worksheets()])
+def registrar_cuenta_en_sheets(name, email, uid, promo_code, metodo):
+    try:
+        hoja = google_sheet.worksheet("CUENTAS")
+
+        hoja.append_row(
+            [
+                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                name,
+                email,
+                uid,
+                promo_code or "",
+                metodo,
+            ],
+            value_input_option="USER_ENTERED",
+        )
+
+        app.logger.info(
+            "Cuenta registrada en Google Sheets: %s",
+            email
+        )
+
+    except Exception as error:
+        app.logger.error(
+            "No se pudo registrar la cuenta en Google Sheets: %s",
+            error
+        )
+
 def init_firebase_admin():
     if firebase_admin._apps:
         return
@@ -1568,6 +1595,13 @@ def crear_sesion():
             "No se pudo enviar el correo de confirmación de registro: %s",
             error
         )
+    registrar_cuenta_en_sheets(
+        name=name,
+        email=email,
+        uid=uid,
+        promo_code=promo_code,
+        metodo="Registro"
+    )
     return {
         "success": True,
         "ok": True
