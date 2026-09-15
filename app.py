@@ -322,7 +322,7 @@ def send_booking_confirmation_email(user, fitness_class):
 
     sender = os.getenv(
         "RESEND_FROM",
-        "FitFlow <onboarding@resend.dev>"
+        "Revitalízate <onboarding@resend.dev>"
     )
 
     class_date = fitness_class["class_date"]
@@ -341,7 +341,7 @@ def send_booking_confirmation_email(user, fitness_class):
         <meta charset="utf-8">
         <meta name="viewport"
               content="width=device-width, initial-scale=1.0">
-        <title>Reserva confirmada · FitFlow</title>
+        <title>Reserva confirmada · Revitalízate</title>
     </head>
 
     <body style="
@@ -405,7 +405,7 @@ def send_booking_confirmation_email(user, fitness_class):
                                             font-weight:800;
                                             letter-spacing:3px;
                                         ">
-                                            FITFLOW
+                                            Revitalízate
                                         </td>
 
                                     </tr>
@@ -555,7 +555,7 @@ def send_booking_confirmation_email(user, fitness_class):
                                     font-weight:800;
                                     letter-spacing:2px;
                                 ">
-                                    FITFLOW
+                                    Revitalízate
                                 </p>
 
                                 <p style="
@@ -624,7 +624,7 @@ def send_registration_confirmation_email(user, promo_code):
 
     sender = os.getenv(
         "RESEND_FROM",
-        "FitFlow <onboarding@resend.dev>"
+        "Revitalízate <onboarding@resend.dev>"
     )
 
     html = f"""
@@ -635,7 +635,7 @@ def send_registration_confirmation_email(user, promo_code):
         <meta charset="utf-8">
         <meta name="viewport"
               content="width=device-width, initial-scale=1.0">
-        <title>Registro completado · FitFlow</title>
+        <title>Registro completado · Revitalízate</title>
     </head>
 
     <body style="
@@ -699,7 +699,7 @@ def send_registration_confirmation_email(user, promo_code):
                                             font-weight:800;
                                             letter-spacing:3px;
                                         ">
-                                            FITFLOW
+                                            Revitalízate
                                         </td>
 
                                     </tr>
@@ -735,7 +735,7 @@ def send_registration_confirmation_email(user, promo_code):
                                     letter-spacing:-1.2px;
                                 ">
                                     ¡Bienvenido<br>
-                                    a FitFlow!
+                                    a Revitalízate!
                                 </h1>
 
                                 <p style="
@@ -746,7 +746,7 @@ def send_registration_confirmation_email(user, promo_code):
                                 ">
                                     Hola {user["name"]}, tu cuenta se ha
                                     creado correctamente.
-                                    ¡Ya formas parte de FitFlow!
+                                    ¡Ya formas parte de Revitalízate!
                                 </p>
 
 
@@ -842,7 +842,7 @@ def send_registration_confirmation_email(user, promo_code):
                                     font-weight:800;
                                     letter-spacing:2px;
                                 ">
-                                    FITFLOW
+                                    Revitalízate
                                 </p>
 
                                 <p style="
@@ -885,7 +885,7 @@ def send_registration_confirmation_email(user, promo_code):
         json={
             "from": sender,
             "to": [user["email"]],
-            "subject": "Bienvenido a FitFlow · Registro completado",
+            "subject": "Bienvenido a Revitalízate · Registro completado",
             "html": html
         },
         timeout=15
@@ -935,7 +935,7 @@ def send_password_reset_email(email, reset_link):
 
     sender = os.getenv(
         "RESEND_FROM",
-        "FitFlow <onboarding@resend.dev>"
+        "Revitalízate <onboarding@resend.dev>"
     )
 
     html = f"""
@@ -947,7 +947,7 @@ def send_password_reset_email(email, reset_link):
         <meta name="viewport"
               content="width=device-width, initial-scale=1.0">
 
-        <title>Restablece tu contraseña · FitFlow</title>
+        <title>Restablece tu contraseña · Revitalízate</title>
     </head>
 
     <body style="
@@ -1040,7 +1040,7 @@ def send_password_reset_email(email, reset_link):
                                                 letter-spacing:3px;
                                             "
                                         >
-                                            FITFLOW
+                                            Revitalízate
                                         </td>
 
                                     </tr>
@@ -1072,7 +1072,7 @@ def send_password_reset_email(email, reset_link):
                                     letter-spacing:2.5px;
                                     text-transform:uppercase;
                                 ">
-                                    FITFLOW MEMBER
+                                    REVITALÍZATE Miembro
                                 </p>
 
 
@@ -1101,7 +1101,7 @@ def send_password_reset_email(email, reset_link):
                                 ">
                                     No pasa nada. Hemos recibido una
                                     solicitud para cambiar la contraseña
-                                    de tu cuenta de FitFlow.
+                                    de tu cuenta de Revitalízate.
                                 </p>
 
 
@@ -1327,7 +1327,7 @@ def send_password_reset_email(email, reset_link):
                                     font-weight:800;
                                     letter-spacing:2px;
                                 ">
-                                    FITFLOW
+                                    Revitalízate
                                 </p>
 
                                 <p style="
@@ -1379,7 +1379,7 @@ def send_password_reset_email(email, reset_link):
         json={
             "from": sender,
             "to": [email],
-            "subject": "Restablece tu contraseña · FitFlow",
+            "subject": "Restablece tu contraseña · Revitalízate",
             "html": html
         },
         timeout=15
