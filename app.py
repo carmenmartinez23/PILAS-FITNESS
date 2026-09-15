@@ -11,14 +11,17 @@ from email.message import EmailMessage
 from functools import wraps
 import gspread
 from google.oauth2.service_account import Credentials
-
+from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
+import firebase_admin
+from firebase_admin import firestore
+from firebase_admin import credentials, auth as firebase_auth
+from firebase_admin.auth import ActionCodeSettings
 
 try:
     from dotenv import load_dotenv
 except ImportError:
     def load_dotenv():
         return False
-from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 
 try:
     import psycopg
@@ -26,10 +29,6 @@ try:
 except ImportError:
     psycopg = None
 
-import firebase_admin
-from firebase_admin import firestore
-from firebase_admin import credentials, auth as firebase_auth
-from firebase_admin.auth import ActionCodeSettings
 load_dotenv()
 
 app = Flask(__name__)
@@ -1487,12 +1486,26 @@ def crear_sesion():
         email.split("@")[0] if email else "Miembro"
     )
 
+    # Log de depuración para verificar los datos del usuario
+    app.logger.info(
+        "LOGIN DEBUG - uid=%s email=%s name=%s",
+        uid,
+        email,
+        name
+    )
+
     connection = db()
 
     user = connection.execute(
         "SELECT * FROM users WHERE firebase_uid = ?",
         (uid,)
     ).fetchone()
+
+# Log de depuración para verificar si se encontró un usuario
+    app.logger.info(
+        "LOGIN DEBUG - usuario encontrado=%s",
+        bool(user)
+    )
 
     # ---------------------------------------------------------
     # USUARIO QUE YA EXISTE
