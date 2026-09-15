@@ -212,7 +212,7 @@ init_db()
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if "user_id" not in session:
+        if not g.user:
             flash("Inicia sesión para reservar una clase.", "info")
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
@@ -238,15 +238,28 @@ def admin_required(view):
 @app.before_request
 def load_user_and_csrf():
     g.user = None
+
     if "user_id" in session:
-        g.user = db().execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        user = db().execute(
+            "SELECT * FROM users WHERE id = ?",
+            (session["user_id"],)
+        ).fetchone()
+
+        if user:
+            g.user = user
+        else:
+            # La sesión apunta a un usuario que ya no existe.
+            # Limpiamos la sesión para evitar estados inconsistentes.
+            session.clear()
+
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
+
     if request.method == "POST":
         token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+
         if token != session["csrf_token"]:
             abort(400, "Solicitud no válida. Actualiza la página e inténtalo de nuevo.")
-
 
 @app.context_processor
 def inject_globals():
@@ -1436,30 +1449,6 @@ def crear_sesion():
     ).fetchone()
 
     # ---------------------------------------------------------
-    # USUARIO QUE YA EXISTE
-    # ---------------------------------------------------------
-
-    if user:
-        user_id = user["id"]
-
-        connection.execute(
-            """
-            UPDATE users
-            SET name = ?, email = ?
-            WHERE id = ?
-            """,
-            (name, email, user_id)
-        )
-
-        session["user_id"] = user_id
-
-        return {
-            "success": True,
-            "ok": True
-        }
-
-
-    # ---------------------------------------------------------
     # USUARIO NUEVO
     # ---------------------------------------------------------
 
@@ -1490,6 +1479,31 @@ def crear_sesion():
             "success": False,
             "message": "Este código promocional ya ha sido utilizado."
         }, 409
+
+
+    # ---------------------------------------------------------
+    # USUARIO QUE YA EXISTE
+    # ---------------------------------------------------------
+
+    if user:
+        user_id = user["id"]
+
+        connection.execute(
+            """
+            UPDATE users
+            SET name = ?, email = ?
+            WHERE id = ?
+            """,
+            (name, email, user_id)
+        )
+
+        session["user_id"] = user_id
+
+        return {
+            "success": True,
+            "ok": True
+        }
+
 
     # ---------------------------------------------------------
     # CREACIÓN ATÓMICA DEL USUARIO + CÓDIGO
