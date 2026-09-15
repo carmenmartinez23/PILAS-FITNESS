@@ -1420,7 +1420,6 @@ def login():
 @app.post("/recuperar-contrasena")
 def recover_password():
     payload = request.get_json(silent=True) or {}
-
     email = (payload.get("email") or "").strip().lower()
 
     if not email:
@@ -1462,8 +1461,15 @@ def recover_password():
 @app.post("/sesion")
 def crear_sesion():
     payload = request.get_json(silent=True) or {}
-
+    app.logger.info(
+        "LOGIN DEBUG - payload recibido: %s",
+        payload
+    )
     id_token = payload.get("idToken")
+    app.logger.info(
+        "LOGIN DEBUG - idToken recibido: %s",
+        bool(id_token)
+    )
     promo_code = (payload.get("promoCode") or "").strip().upper()
 
     if not id_token:
