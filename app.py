@@ -58,6 +58,7 @@ google_sheets = gspread.authorize(google_credentials)
 
 google_sheet = google_sheets.open_by_key(GOOGLE_SHEETS_ID)
 print("✅ Google Sheets conectado:", google_sheet.title)
+print("📋 Hojas disponibles:", [ws.title for ws in google_sheet.worksheets()])
 def init_firebase_admin():
     if firebase_admin._apps:
         return
