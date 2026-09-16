@@ -1487,12 +1487,10 @@ def crear_sesion():
     payload = request.get_json(silent=True) or {}
 
     id_token = payload.get("idToken")
-    promo_code = (payload.get("promoCode") or "").strip().upper()
 
     app.logger.info(
-        "LOGIN - petición recibida | tiene_idToken=%s | tiene_promoCode=%s",
-        bool(id_token),
-        bool(promo_code)
+        "LOGIN - petición recibida | tiene_idToken=%s",
+        bool(id_token)
     )
 
     # ---------------------------------------------------------
@@ -1650,52 +1648,11 @@ def crear_sesion():
 
     # ---------------------------------------------------------
     # USUARIO NUEVO
-    #
-    # Solo los usuarios que todavía no existen necesitan
-    # código promocional.
     # ---------------------------------------------------------
 
     app.logger.info(
-        "LOGIN - usuario nuevo detectado"
-    )
-
-    if not promo_code:
-        return {
-            "success": False,
-            "message": "Introduce tu código promocional."
-        }, 400
-
-    # ---------------------------------------------------------
-    # COMPROBAR CÓDIGO PROMOCIONAL
-    # ---------------------------------------------------------
-
-    promo = connection.execute(
-        """
-        SELECT id, user_id
-        FROM promo_codes
-        WHERE code = ?
-        """,
-        (promo_code,)
-    ).fetchone()
-
-    if not promo:
-        return {
-            "success": False,
-            "message": "El código promocional no es válido."
-        }, 400
-
-    if promo["user_id"] is not None:
-        return {
-            "success": False,
-            "message": "Este código promocional ya ha sido utilizado."
-        }, 409
-
-    # ---------------------------------------------------------
-    # CREAR USUARIO Y RECLAMAR CÓDIGO DE FORMA ATÓMICA
-    # ---------------------------------------------------------
-
-    connection.execute(
-        "BEGIN" if connection.postgres else "BEGIN IMMEDIATE"
+        "REGISTRO - usuario nuevo detectado | email=%s",
+        email
     )
 
     try:
@@ -1718,32 +1675,20 @@ def crear_sesion():
 
         user_id = cursor.fetchone()["id"]
 
-        result = connection.execute(
-            """
-            UPDATE promo_codes
-            SET user_id = ?
-            WHERE code = ?
-              AND user_id IS NULL
-            """,
-            (
-                user_id,
-                promo_code
-            )
+        connection.commit()
+
+    except Exception as error:
+        app.logger.error(
+            "REGISTRO - error creando usuario: %s",
+            error
         )
 
-        if result.rowcount != 1:
-            connection.execute("ROLLBACK")
+        connection.rollback()
 
-            return {
-                "success": False,
-                "message": "Este código promocional ya ha sido utilizado."
-            }, 409
-
-        connection.execute("COMMIT")
-
-    except Exception:
-        connection.execute("ROLLBACK")
-        raise
+        return {
+            "success": False,
+            "message": "No se pudo crear la cuenta."
+        }, 500
 
     # ---------------------------------------------------------
     # CREAR SESIÓN FLASK
@@ -1761,7 +1706,7 @@ def crear_sesion():
                 "name": name,
                 "email": email
             },
-            promo_code
+            ""
         )
 
     except Exception as error:
@@ -1778,7 +1723,7 @@ def crear_sesion():
         name=name,
         email=email,
         uid=uid,
-        promo_code=promo_code,
+        promo_code="",
         metodo="Registro"
     )
 
