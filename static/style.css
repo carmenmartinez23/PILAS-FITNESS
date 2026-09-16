@@ -1099,3 +1099,62 @@ gap: 20px;
     }
 }
 
+/* TARJETAS DE CLASES MÁS COMPACTAS */
+.class-grid-inner {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.class-card {
+    padding: 16px;
+}
+
+.class-card h3 {
+    font-size: 1.25rem;
+    line-height: 1.1;
+    margin-bottom: 8px;
+}
+
+.class-card p {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin-bottom: 7px;
+}
+
+.class-card .meta {
+    font-size: 0.68rem;
+}
+
+.class-card .reserve {
+    padding: 10px 12px;
+    font-size: 0.7rem;
+}
+
+
+/* MÓVIL */
+@media (max-width: 760px) {
+
+    .class-grid-inner {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .class-card {
+        padding: 13px;
+    }
+
+    .class-card h3 {
+        font-size: 1.05rem;
+        margin-bottom: 6px;
+    }
+
+    .class-card p {
+        font-size: 0.74rem;
+        margin-bottom: 5px;
+    }
+
+    .class-card .reserve {
+        padding: 9px 11px;
+        font-size: 0.68rem;
+    }
+}
