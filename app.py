@@ -1434,9 +1434,30 @@ def index():
 
 @app.route("/reservar/<class_id>")
 def reservar_clase(class_id):
+
+    firestore_db = firestore.client()
+
+    class_doc = (
+        firestore_db
+        .collection("classes")
+        .document(class_id)
+        .get()
+    )
+
+    if not class_doc.exists:
+        abort(404)
+
+    class_data = class_doc.to_dict()
+
+    # No permitir acceder a la página de reserva
+    # de una clase desactivada.
+    if class_data.get("activa") is False:
+        abort(404)
+
     return render_template(
         "reservar.html",
-        class_id=class_id
+        class_id=class_id,
+        fitness_class=class_data
     )
 
 
