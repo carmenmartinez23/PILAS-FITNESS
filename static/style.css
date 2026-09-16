@@ -675,3 +675,260 @@ footer span {
     font-weight: 800;
     font-size: 1.3rem;
 }
+
+/* =========================================================
+RESERVA DE CLASE
+========================================================= */
+
+.reservation-page {
+min-height: calc(100vh - 140px);
+display: grid;
+grid-template-columns: 1fr 1fr;
+background: #fff;
+}
+
+.reservation-info {
+background: var(--green-soft);
+padding: 75px 8vw 80px 10vw;
+}
+
+.reservation-info h1 {
+font-size: clamp(3.2rem, 5vw, 5.4rem);
+line-height: .92;
+letter-spacing: -.065em;
+margin: 0 0 42px;
+}
+
+.reservation-info h1 em {
+font-family: Georgia, serif;
+font-weight: 400;
+}
+
+.reservation-image {
+width: 100%;
+max-width: 570px;
+height: 250px;
+overflow: hidden;
+margin-bottom: 24px;
+}
+
+.reservation-image img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+display: block;
+filter: grayscale(1) sepia(.2) hue-rotate(65deg) saturate(1.3);
+}
+
+.reservation-class {
+max-width: 570px;
+}
+
+.reservation-class-top {
+display: flex;
+justify-content: space-between;
+font: 700 .68rem 'DM Mono', monospace;
+color: var(--green-dark);
+text-transform: uppercase;
+}
+
+.reservation-class h2 {
+font-size: 2rem;
+letter-spacing: -.05em;
+margin: 13px 0 6px;
+}
+
+.reservation-class p {
+color: var(--muted);
+font-size: .82rem;
+margin: 5px 0;
+}
+
+.reservation-description {
+line-height: 1.6;
+max-width: 500px;
+margin-top: 17px !important;
+}
+
+.reservation-card {
+align-self: center;
+width: min(470px, 82%);
+margin: auto;
+padding: 65px 0;
+}
+
+.reservation-card h2 {
+font-size: clamp(2.8rem, 4vw, 4rem);
+line-height: .95;
+letter-spacing: -.06em;
+margin: 0 0 20px;
+}
+
+.reservation-intro {
+color: var(--muted);
+font-size: .86rem;
+line-height: 1.6;
+margin: 0 0 30px;
+max-width: 390px;
+}
+
+.reservation-card label {
+display: block;
+margin: 18px 0;
+color: var(--muted);
+font-size: .78rem;
+font-weight: 700;
+}
+
+.reservation-card input {
+width: 100%;
+border: 0;
+border-bottom: 1px solid var(--green);
+background: transparent;
+padding: 12px 0;
+font: 1rem Manrope, sans-serif;
+outline: none;
+color: var(--ink);
+}
+
+.reservation-card input:focus {
+border-color: var(--green-dark);
+}
+
+.reservation-card input:invalid:not(:placeholder-shown) {
+border-color: #b33a3a;
+}
+
+.reservation-card small {
+display: block;
+margin-top: 7px;
+color: var(--muted);
+font-size: .68rem;
+font-weight: 500;
+line-height: 1.5;
+}
+
+.reservation-submit {
+border: 0;
+width: 100%;
+justify-content: space-between;
+margin-top: 25px;
+cursor: pointer;
+}
+
+.reservation-submit:disabled {
+opacity: .6;
+cursor: wait;
+}
+
+.reservation-message {
+display: none;
+margin-top: 20px;
+padding: 13px 15px;
+font-size: .78rem;
+line-height: 1.5;
+border-left: 4px solid var(--green-dark);
+background: var(--green-soft);
+}
+
+.reservation-message.error {
+display: block;
+border-color: var(--ink);
+background: #fff;
+}
+
+.reservation-message.success {
+display: block;
+border-color: var(--green-dark);
+background: var(--green-soft);
+}
+
+.reservation-success {
+padding: 20px 0;
+}
+
+.reservation-success[hidden] {
+display: none;
+}
+
+.reservation-success-icon {
+width: 52px;
+height: 52px;
+display: grid;
+place-items: center;
+border-radius: 50%;
+background: var(--green);
+color: var(--ink);
+font-weight: 800;
+font-size: 1.4rem;
+margin-bottom: 25px;
+}
+
+.reservation-success h2 {
+margin-bottom: 20px;
+}
+
+.reservation-success > p:not(.eyebrow) {
+color: var(--muted);
+font-size: .86rem;
+line-height: 1.65;
+max-width: 390px;
+}
+
+.reservation-ticket {
+margin: 28px 0;
+padding: 20px;
+background: var(--ink);
+color: #fff;
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+
+.reservation-ticket span {
+font: 700 .65rem 'DM Mono', monospace;
+color: var(--green-soft);
+}
+
+.reservation-ticket strong {
+color: var(--green);
+font-size: 1.5rem;
+}
+
+.reservation-back {
+margin-top: 20px;
+}
+
+/* MÓVIL */
+
+@media(max-width:760px) {
+    .reservation-page {
+        grid-template-columns: 1fr;
+    }
+
+    .reservation-info {
+        padding: 65px 7vw 55px;
+    }
+
+    .reservation-info h1 {
+        font-size: clamp(3.2rem, 14vw, 5rem);
+        margin-bottom: 35px;
+    }
+
+    .reservation-image {
+        height: 220px;
+    }
+
+    .reservation-card {
+        width: min(520px, 86%);
+        padding: 65px 0 75px;
+    }
+
+    .reservation-card h2 {
+        font-size: 3rem;
+    }
+
+    .reservation-ticket {
+        gap: 20px;
+    }
+}
