@@ -82,7 +82,7 @@ form.addEventListener("submit", async (event) => {
     }
 
 
-    if (entryNumber < 1 || entryNumber > 1700) {
+    if (entryNumber < 0 || entryNumber > 1700) {
         showMessage("El número de entrada debe estar entre 1 y 1700.");
         return;
     }
