@@ -278,33 +278,37 @@ OBTENER CLASES DEL HORARIO
 ========================================================= */
 
 function getClassesForSchedule(schedule) {
-    return allClasses.filter(classItem => {
-    
-        if (!classItem.time) {
-            return false;
-        }
-    
-    
-        /*
-         * En Google Sheets la hora puede aparecer como:
-         *
-         * 10:30
-         * 10:30 - 11:10
-         * 10:30-11:10
-         *
-         * Cogemos solamente la hora inicial.
-         */
-    
-        const time =
-            String(classItem.time)
-                .trim()
-                .replace(/\s/g, "")
-                .split("-")[0];
-    
-    
-        return time === schedule.id;
-    
-    });
+
+```
+return allClasses.filter(classItem => {
+
+    if (!classItem.time) {
+        return false;
+    }
+
+
+    /*
+     * En Google Sheets la hora puede aparecer como:
+     *
+     * 10:30
+     * 10:30 - 11:10
+     * 10:30-11:10
+     *
+     * Cogemos solamente la hora inicial.
+     */
+
+    const time =
+        String(classItem.time)
+            .trim()
+            .replace(/\s/g, "")
+            .split("-")[0];
+
+
+    return time === schedule.id;
+
+});
+```
+
 }
 
 /* =========================================================
@@ -519,29 +523,51 @@ function renderClasses(classes) {
 /* =========================================================
 FORMATEAR FECHA
 ========================================================= */
+function formatDate(value) {
+    if (!value) return "Fecha no disponible";
 
-function formatDate(dateString) {
+    const text = String(value).trim();
 
-    if (!dateString) {
-        return "";
+    let day, month, year;
+
+    // YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        [year, month, day] = text.split("-");
     }
 
+    // DD/MM/YYYY
+    else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text)) {
+        [day, month, year] = text.split("/");
+    }
 
-    const date =
-        new Date(
-            `${dateString}T00:00:00`
-        );
+    else {
+        const date = new Date(text);
 
-
-    return date.toLocaleDateString(
-        "es-ES",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric"
+        if (Number.isNaN(date.getTime())) {
+            return "Fecha no disponible";
         }
-    );
 
+        day = String(date.getDate()).padStart(2, "0");
+        month = String(date.getMonth() + 1).padStart(2, "0");
+        year = String(date.getFullYear());
+    }
+
+    const months = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre"
+    ];
+
+    return `${day} de ${months[Number(month) - 1]} de ${year}`;
 }
 
 /* =========================================================
