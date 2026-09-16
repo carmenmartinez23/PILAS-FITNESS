@@ -948,4 +948,154 @@ height: 100%;
 object-fit: contain;
 display: block;
 }
+/* =========================================================
+SELECTOR DE HORARIOS
+========================================================= */
+
+#class-schedules {
+margin-bottom: 45px;
+}
+
+.schedule-heading {
+margin-bottom: 24px;
+}
+
+.schedule-heading h3 {
+font-size: 1.8rem;
+letter-spacing: -.05em;
+margin: 0;
+}
+
+.schedule-buttons {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 15px;
+}
+
+.schedule-button {
+position: relative;
+border: 1px solid var(--green-soft);
+background: #fff;
+color: var(--ink);
+padding: 22px;
+text-align: left;
+cursor: pointer;
+font-family: Manrope, sans-serif;
+transition: .2s ease;
+display: grid;
+gap: 6px;
+}
+
+.schedule-button span {
+font-size: 1.15rem;
+font-weight: 800;
+letter-spacing: -.03em;
+}
+
+.schedule-button small {
+color: var(--muted);
+font-size: .7rem;
+}
+
+.schedule-button b {
+position: absolute;
+right: 20px;
+bottom: 20px;
+font-size: 1.1rem;
+}
+
+.schedule-button:hover,
+.schedule-button.selected {
+background: var(--green);
+border-color: var(--green);
+transform: translateY(-2px);
+}
+
+.schedule-placeholder {
+border: 1px dashed var(--green);
+padding: 45px 30px;
+text-align: center;
+color: var(--muted);
+}
+
+.schedule-placeholder p {
+margin: 0;
+font-size: .85rem;
+}
+
+.schedule-empty {
+padding: 45px 0;
+}
+
+.schedule-empty h3 {
+font-size: 2rem;
+letter-spacing: -.05em;
+margin: 0 0 10px;
+}
+
+.schedule-empty > p:last-child {
+color: var(--muted);
+font-size: .85rem;
+}
+
+.selected-schedule-heading {
+display: flex;
+align-items: end;
+justify-content: space-between;
+margin-bottom: 25px;
+}
+
+.selected-schedule-heading h2 {
+margin: 0;
+font-size: 2.4rem;
+letter-spacing: -.06em;
+}
+
+.change-schedule {
+border: 0;
+background: transparent;
+color: var(--green-dark);
+font: 700 .75rem 'DM Mono', monospace;
+cursor: pointer;
+text-decoration: underline;
+text-underline-offset: 4px;
+}
+
+.class-grid-inner {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 20px;
+}
+
+/* MÓVIL */
+
+@media(max-width:760px) {
+
+    .schedule-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .schedule-button {
+        padding: 19px;
+    }
+
+    .schedule-button b {
+        right: 19px;
+        bottom: auto;
+        top: 22px;
+    }
+
+    .selected-schedule-heading {
+        display: block;
+    }
+
+    .selected-schedule-heading h2 {
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
+
+    .class-grid-inner {
+        grid-template-columns: 1fr;
+    }
+}
 
