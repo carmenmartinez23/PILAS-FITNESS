@@ -278,37 +278,33 @@ OBTENER CLASES DEL HORARIO
 ========================================================= */
 
 function getClassesForSchedule(schedule) {
-
-```
-return allClasses.filter(classItem => {
-
-    if (!classItem.time) {
-        return false;
-    }
-
-
-    /*
-     * En Google Sheets la hora puede aparecer como:
-     *
-     * 10:30
-     * 10:30 - 11:10
-     * 10:30-11:10
-     *
-     * Cogemos solamente la hora inicial.
-     */
-
-    const time =
-        String(classItem.time)
-            .trim()
-            .replace(/\s/g, "")
-            .split("-")[0];
-
-
-    return time === schedule.id;
-
-});
-```
-
+    return allClasses.filter(classItem => {
+    
+        if (!classItem.time) {
+            return false;
+        }
+    
+    
+        /*
+         * En Google Sheets la hora puede aparecer como:
+         *
+         * 10:30
+         * 10:30 - 11:10
+         * 10:30-11:10
+         *
+         * Cogemos solamente la hora inicial.
+         */
+    
+        const time =
+            String(classItem.time)
+                .trim()
+                .replace(/\s/g, "")
+                .split("-")[0];
+    
+    
+        return time === schedule.id;
+    
+    });
 }
 
 /* =========================================================
