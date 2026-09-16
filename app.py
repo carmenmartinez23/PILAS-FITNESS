@@ -1770,7 +1770,10 @@ def crear_sesion():
         "success": True,
         "ok": True
     }
-
+@app.route("/ping")
+def ping():
+    return "OK", 200
+    
 @app.post("/salir")
 def logout():
     session.clear()
