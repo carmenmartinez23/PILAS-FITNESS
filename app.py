@@ -284,9 +284,17 @@ def admin_required(view):
 def load_user_and_csrf():
     g.user = None
 
+    # ---------------------------------------------------------
+    # CARGAR USUARIO DE LA SESIÓN FLASK
+    # ---------------------------------------------------------
+
     if "user_id" in session:
         user = db().execute(
-            "SELECT * FROM users WHERE id = ?",
+            """
+            SELECT *
+            FROM users
+            WHERE id = ?
+            """,
             (session["user_id"],)
         ).fetchone()
 
@@ -294,17 +302,33 @@ def load_user_and_csrf():
             g.user = user
         else:
             # La sesión apunta a un usuario que ya no existe.
-            # Limpiamos la sesión para evitar estados inconsistentes.
             session.clear()
+
+    # ---------------------------------------------------------
+    # CREAR TOKEN CSRF SI NO EXISTE
+    # ---------------------------------------------------------
 
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
 
+    # ---------------------------------------------------------
+    # VALIDAR CSRF EN PETICIONES POST
+    #
+    # /sesion queda excluida porque esta ruta utiliza
+    # el ID token de Firebase como mecanismo de autenticación.
+    # ---------------------------------------------------------
+
     if request.method == "POST" and request.path != "/sesion":
-        token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+        token = (
+            request.form.get("csrf_token")
+            or request.headers.get("X-CSRF-Token")
+        )
 
         if token != session["csrf_token"]:
-            abort(400, "Solicitud no válida. Actualiza la página e inténtalo de nuevo.")
+            abort(
+                400,
+                "Solicitud no válida. Actualiza la página e inténtalo de nuevo."
+            )
 
 @app.context_processor
 def inject_globals():
@@ -1461,40 +1485,62 @@ def recover_password():
 @app.post("/sesion")
 def crear_sesion():
     payload = request.get_json(silent=True) or {}
-    app.logger.info(
-        "LOGIN DEBUG - payload recibido: %s",
-        payload
-    )
+
     id_token = payload.get("idToken")
-    app.logger.info(
-        "LOGIN DEBUG - idToken recibido: %s",
-        bool(id_token)
-    )
     promo_code = (payload.get("promoCode") or "").strip().upper()
 
+    app.logger.info(
+        "LOGIN - petición recibida | tiene_idToken=%s | tiene_promoCode=%s",
+        bool(id_token),
+        bool(promo_code)
+    )
+
+    # ---------------------------------------------------------
+    # COMPROBAR TOKEN
+    # ---------------------------------------------------------
+
     if not id_token:
+        app.logger.warning(
+            "LOGIN - no se recibió idToken"
+        )
+
         return {
             "success": False,
             "message": "Falta el token de Firebase."
         }, 400
 
+    # ---------------------------------------------------------
+    # VERIFICAR AUTENTICACIÓN CON FIREBASE
+    # ---------------------------------------------------------
+
     try:
         decoded = firebase_auth.verify_id_token(id_token)
-    except Exception:
+
+    except Exception as error:
+        app.logger.error(
+            "LOGIN - error verificando token Firebase: %s",
+            error
+        )
+
         return {
             "success": False,
             "message": "No se pudo verificar la sesión de Firebase."
         }, 401
 
     uid = decoded["uid"]
-    email = (decoded.get("email") or "").strip().lower()
+
+    email = (
+        decoded.get("email") or ""
+    ).strip().lower()
+
     name = decoded.get("name") or (
-        email.split("@")[0] if email else "Miembro"
+        email.split("@")[0]
+        if email
+        else "Miembro"
     )
 
-    # Log de depuración para verificar los datos del usuario
     app.logger.info(
-        "LOGIN DEBUG - uid=%s email=%s name=%s",
+        "LOGIN - Firebase verificado | uid=%s | email=%s | name=%s",
         uid,
         email,
         name
@@ -1502,44 +1548,75 @@ def crear_sesion():
 
     connection = db()
 
+    # ---------------------------------------------------------
+    # BUSCAR USUARIO POR UID
+    # ---------------------------------------------------------
+
     user = connection.execute(
-    "SELECT * FROM users WHERE firebase_uid = ?",
-    (uid,)
+        """
+        SELECT *
+        FROM users
+        WHERE firebase_uid = ?
+        """,
+        (uid,)
     ).fetchone()
 
-    # Si no encontramos el UID, buscamos por email.
-    # Esto permite recuperar usuarios existentes aunque
-    # el UID de Firebase no coincida con el registrado anteriormente.
+    # ---------------------------------------------------------
+    # SI NO ESTÁ POR UID, BUSCAR POR EMAIL
+    # ---------------------------------------------------------
+
     if not user and email:
+        app.logger.info(
+            "LOGIN - UID no encontrado. Buscando por email: %s",
+            email
+        )
+
         user = connection.execute(
-            "SELECT * FROM users WHERE LOWER(email) = ?",
+            """
+            SELECT *
+            FROM users
+            WHERE LOWER(email) = ?
+            """,
             (email,)
         ).fetchone()
 
+        # -----------------------------------------------------
+        # RECUPERAR CUENTA EXISTENTE
+        # -----------------------------------------------------
+
         if user:
-            # Asociamos el UID actual de Firebase a la cuenta existente.
+            app.logger.info(
+                "LOGIN - usuario encontrado por email. ID=%s",
+                user["id"]
+            )
+
             connection.execute(
                 """
                 UPDATE users
-                SET firebase_uid = ?, name = ?, email = ?
+                SET firebase_uid = ?,
+                    name = ?,
+                    email = ?
                 WHERE id = ?
                 """,
-                (uid, name, email, user["id"])
+                (
+                    uid,
+                    name,
+                    email,
+                    user["id"]
+                )
             )
 
             user = connection.execute(
-                "SELECT * FROM users WHERE id = ?",
+                """
+                SELECT *
+                FROM users
+                WHERE id = ?
+                """,
                 (user["id"],)
             ).fetchone()
 
-# Log de depuración para verificar si se encontró un usuario
-    app.logger.info(
-        "LOGIN DEBUG - usuario encontrado=%s",
-        bool(user)
-    )
-
     # ---------------------------------------------------------
-    # USUARIO QUE YA EXISTE
+    # USUARIO EXISTENTE
     # ---------------------------------------------------------
 
     if user:
@@ -1548,13 +1625,23 @@ def crear_sesion():
         connection.execute(
             """
             UPDATE users
-            SET name = ?, email = ?
+            SET name = ?,
+                email = ?
             WHERE id = ?
             """,
-            (name, email, user_id)
+            (
+                name,
+                email,
+                user_id
+            )
         )
 
         session["user_id"] = user_id
+
+        app.logger.info(
+            "LOGIN - sesión Flask creada correctamente | user_id=%s",
+            user_id
+        )
 
         return {
             "success": True,
@@ -1563,7 +1650,14 @@ def crear_sesion():
 
     # ---------------------------------------------------------
     # USUARIO NUEVO
+    #
+    # Solo los usuarios que todavía no existen necesitan
+    # código promocional.
     # ---------------------------------------------------------
+
+    app.logger.info(
+        "LOGIN - usuario nuevo detectado"
+    )
 
     if not promo_code:
         return {
@@ -1571,7 +1665,10 @@ def crear_sesion():
             "message": "Introduce tu código promocional."
         }, 400
 
-    # Comprobamos que el código exista.
+    # ---------------------------------------------------------
+    # COMPROBAR CÓDIGO PROMOCIONAL
+    # ---------------------------------------------------------
+
     promo = connection.execute(
         """
         SELECT id, user_id
@@ -1594,38 +1691,70 @@ def crear_sesion():
         }, 409
 
     # ---------------------------------------------------------
-    # CREACIÓN ATÓMICA DEL USUARIO + CÓDIGO
+    # CREAR USUARIO Y RECLAMAR CÓDIGO DE FORMA ATÓMICA
     # ---------------------------------------------------------
+
     connection.execute(
         "BEGIN" if connection.postgres else "BEGIN IMMEDIATE"
-        )
+    )
+
     try:
         cursor = connection.execute(
             """
-            INSERT INTO users (firebase_uid,name,email)VALUES (?, ?, ?)RETURNING id""",(uid, name, email))
+            INSERT INTO users (
+                firebase_uid,
+                name,
+                email
+            )
+            VALUES (?, ?, ?)
+            RETURNING id
+            """,
+            (
+                uid,
+                name,
+                email
+            )
+        )
+
         user_id = cursor.fetchone()["id"]
-        # Intentamos reclamar el código.
+
         result = connection.execute(
             """
             UPDATE promo_codes
             SET user_id = ?
             WHERE code = ?
-            AND user_id IS NULL
+              AND user_id IS NULL
             """,
-            (user_id, promo_code)
+            (
+                user_id,
+                promo_code
             )
+        )
+
         if result.rowcount != 1:
             connection.execute("ROLLBACK")
+
             return {
                 "success": False,
                 "message": "Este código promocional ya ha sido utilizado."
-                }, 409
+            }, 409
 
         connection.execute("COMMIT")
+
     except Exception:
         connection.execute("ROLLBACK")
         raise
+
+    # ---------------------------------------------------------
+    # CREAR SESIÓN FLASK
+    # ---------------------------------------------------------
+
     session["user_id"] = user_id
+
+    # ---------------------------------------------------------
+    # CORREO DE BIENVENIDA
+    # ---------------------------------------------------------
+
     try:
         send_registration_confirmation_email(
             {
@@ -1634,11 +1763,17 @@ def crear_sesion():
             },
             promo_code
         )
+
     except Exception as error:
         app.logger.error(
             "No se pudo enviar el correo de confirmación de registro: %s",
             error
         )
+
+    # ---------------------------------------------------------
+    # REGISTRAR CUENTA EN GOOGLE SHEETS
+    # ---------------------------------------------------------
+
     registrar_cuenta_en_sheets(
         name=name,
         email=email,
@@ -1646,6 +1781,13 @@ def crear_sesion():
         promo_code=promo_code,
         metodo="Registro"
     )
+
+    app.logger.info(
+        "REGISTRO - usuario creado correctamente | user_id=%s | email=%s",
+        user_id,
+        email
+    )
+
     return {
         "success": True,
         "ok": True
