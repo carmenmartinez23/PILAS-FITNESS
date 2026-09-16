@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-getFunctions,
-httpsCallable
+    getFunctions,
+    httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -21,10 +21,8 @@ const submitButton = document.querySelector(".reservation-submit");
 const successEntryNumber = document.getElementById("success-entry-number");
 
 function showMessage(text, type = "error") {
-
-message.textContent = text;
-message.className = `reservation-message ${type}`;
-
+    message.textContent = text;
+    message.className = `reservation-message ${type}`;
 }
 
 function getFirebaseErrorMessage(error) {
@@ -71,26 +69,40 @@ form.addEventListener("submit", async (event) => {
     const phone = document.getElementById("phone").value.trim();
     const email = document.getElementById("email").value.trim().toLowerCase();
     const birthDate = document.getElementById("birthDate").value;
-    const entryNumber = Number(
-        document.getElementById("entryNumber").value
-    );
 
+    const entryNumberInput =
+        document.getElementById("entryNumber").value.trim();
 
-    if (!name || !phone || !email || !birthDate || !entryNumber) {
+    // Comprobamos que el campo no esté vacío.
+    // IMPORTANTE: 0 sí es válido como cliente de prueba.
+    if (
+        !name ||
+        !phone ||
+        !email ||
+        !birthDate ||
+        entryNumberInput === ""
+    ) {
         showMessage("Completa todos los campos antes de continuar.");
         return;
     }
 
+    const entryNumber = Number(entryNumberInput);
 
-    if (entryNumber <= 0 || entryNumber > 1700) {
-        showMessage("El número de entrada debe estar entre 1 y 1700.");
+    // 0 = cliente de prueba
+    // 1-1700 = clientes reales
+    if (
+        !Number.isInteger(entryNumber) ||
+        entryNumber < 0 ||
+        entryNumber > 1700
+    ) {
+        showMessage(
+            "El número de entrada debe estar entre 0 y 1700."
+        );
         return;
     }
 
-
     submitButton.disabled = true;
     submitButton.querySelector("span").textContent = "Reservando...";
-
 
     try {
 
@@ -103,22 +115,18 @@ form.addEventListener("submit", async (event) => {
             entryNumber
         });
 
-
         const data = result.data || {};
 
         successEntryNumber.textContent =
-            data.entryNumber || entryNumber;
-
+            data.entryNumber ?? entryNumber;
 
         formContainer.hidden = true;
         successContainer.hidden = false;
-
 
         window.scrollTo({
             top: 0,
             behavior: "smooth"
         });
-
 
     } catch (error) {
 
@@ -131,7 +139,6 @@ form.addEventListener("submit", async (event) => {
 
         submitButton.disabled = false;
         submitButton.querySelector("span").textContent = "Reservar plaza";
-
     }
 
 });
