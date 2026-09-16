@@ -3,11 +3,317 @@ const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
+const { google } = require("googleapis");
 
 initializeApp();
 
 const db = getFirestore();
 const resendApiKey = defineSecret("RESEND_API_KEY");
+const googleServiceAccountJson = defineSecret("GOOGLE_SERVICE_ACCOUNT_JSON");
+const SPREADSHEET_ID =
+    "1Nl_LtlQX-nVc4yUd0yd-HsQwceFXTe9CrUPdsKx449s";
+async function obtenerClasesDesdeSheets() {
+
+    const credentials = JSON.parse(
+        googleServiceAccountJson.value()
+    );
+
+    const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: [
+            "https://www.googleapis.com/auth/spreadsheets"
+        ]
+    });
+
+    const sheets = google.sheets({
+        version: "v4",
+        auth
+    });
+
+    // -------------------------------------------------
+    // 1. Comprobar si existe la pestaña CLASES
+    // -------------------------------------------------
+
+    const spreadsheet =
+        await sheets.spreadsheets.get({
+            spreadsheetId: SPREADSHEET_ID
+        });
+
+    const existeClases =
+        spreadsheet.data.sheets?.some(
+            sheet =>
+                sheet.properties?.title === "CLASES"
+        );
+
+    // -------------------------------------------------
+    // 2. Crear CLASES si no existe
+    // -------------------------------------------------
+
+    if (!existeClases) {
+
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SPREADSHEET_ID,
+            requestBody: {
+                requests: [
+                    {
+                        addSheet: {
+                            properties: {
+                                title: "CLASES"
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "CLASES!A1:J1",
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: [[
+                    "id",
+                    "title",
+                    "trainer",
+                    "date",
+                    "time",
+                    "duration",
+                    "capacity",
+                    "description",
+                    "imageUrl",
+                    "activa"
+                ]]
+            }
+        });
+
+        console.log(
+            "Pestaña CLASES creada correctamente."
+        );
+
+        return [];
+    }
+
+    // -------------------------------------------------
+    // 3. Leer las clases
+    // -------------------------------------------------
+
+    const response =
+        await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "CLASES!A:J"
+        });
+
+    const rows =
+        response.data.values || [];
+
+    if (rows.length <= 1) {
+        return [];
+    }
+
+    // -------------------------------------------------
+    // 4. Convertir filas en objetos
+    // -------------------------------------------------
+
+    const classes = [];
+
+    for (let i = 1; i < rows.length; i++) {
+
+        const row = rows[i];
+
+        const id =
+            String(row[0] || "").trim();
+
+        if (!id) {
+            continue;
+        }
+
+        const title =
+            String(row[1] || "").trim();
+
+        const trainer =
+            String(row[2] || "").trim();
+
+        const date =
+            String(row[3] || "").trim();
+
+        const time =
+            String(row[4] || "").trim();
+
+        const duration =
+            Number(row[5] || 0);
+
+        const capacity =
+            Number(row[6] || 0);
+
+        const description =
+            String(row[7] || "").trim();
+
+        const imageUrl =
+            String(row[8] || "").trim();
+
+        const activaValue =
+            String(row[9] || "")
+                .trim()
+                .toLowerCase();
+
+        const activa =
+            activaValue === "true" ||
+            activaValue === "sí" ||
+            activaValue === "si" ||
+            activaValue === "1";
+
+        classes.push({
+            id,
+            title,
+            trainer,
+            date,
+            time,
+            duration,
+            capacity,
+            description,
+            imageUrl,
+            activa
+        });
+    }
+
+    return classes;
+}
+async function sincronizarClasesConFirestore() {
+
+    const classes =
+        await obtenerClasesDesdeSheets();
+
+    const batch =
+        db.batch();
+
+    const activeIds =
+        new Set();
+
+    for (const classData of classes) {
+
+        const classRef =
+            db.collection("classes")
+                .doc(classData.id);
+
+        activeIds.add(classData.id);
+
+        // Obtener el documento actual
+        const existing =
+            await classRef.get();
+
+        const existingData =
+            existing.exists
+                ? existing.data()
+                : {};
+
+        batch.set(
+            classRef,
+            {
+                title: classData.title,
+                trainer: classData.trainer,
+                date: classData.date,
+                time: classData.time,
+                duration: classData.duration,
+                capacity: classData.capacity,
+                description: classData.description,
+                imageUrl: classData.imageUrl,
+                activa: classData.activa,
+
+                // Mantener las reservas existentes
+                bookedCount:
+                    Number(
+                        existingData.bookedCount || 0
+                    )
+            },
+            {
+                merge: true
+            }
+        );
+    }
+
+    await batch.commit();
+
+    console.log(
+        `Clases sincronizadas desde Google Sheets: ${classes.length}`
+    );
+
+    return classes;
+}
+exports.syncClassesFromSheets = onCall(
+    {
+        secrets: [googleServiceAccountJson]
+    },
+    async () => {
+
+        try {
+
+            const classes =
+                await sincronizarClasesConFirestore();
+
+            return {
+                success: true,
+                classesCount: classes.length
+            };
+
+        } catch (error) {
+
+            console.error(
+                "Error sincronizando clases desde Google Sheets:",
+                error
+            );
+
+            throw new HttpsError(
+                "internal",
+                "No se han podido sincronizar las clases."
+            );
+        }
+    }
+);
+async function registrarReservaEnSheets(user, fitnessClass) {
+    try {
+        const credentials = JSON.parse(
+            googleServiceAccountJson.value()
+        );
+
+        const auth = new google.auth.GoogleAuth({
+            credentials,
+            scopes: [
+                "https://www.googleapis.com/auth/spreadsheets"
+            ]
+        });
+
+        const sheets = google.sheets({
+            version: "v4",
+            auth
+        });
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "RESERVAS!A:F",
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: [[
+                    new Date().toLocaleString("es-ES"),
+                    user.name,
+                    user.email,
+                    fitnessClass.title,
+                    fitnessClass.trainer,
+                    `${fitnessClass.date} ${fitnessClass.time}`
+                ]]
+            }
+        });
+
+        console.log(
+            `Reserva registrada en Google Sheets: ${user.email} - ${fitnessClass.title}`
+        );
+
+    } catch (error) {
+        console.error(
+            "No se pudo registrar la reserva en Google Sheets:",
+            error
+        );
+    }
+}
 async function sendResendEmail({ to, subject, html }) {
 
     const apiKey = resendApiKey.value();
@@ -431,7 +737,7 @@ async function sendBookingCancellationEmail(user, classData) {
     });
 }
 exports.reserveClass = onCall(
-    { secrets: [resendApiKey] },
+    { secrets: [resendApiKey, googleServiceAccountJson] },
     async (request) => {
 
     if (!request.auth) {
@@ -533,6 +839,10 @@ exports.reserveClass = onCall(
                 error
             );
         }
+        await registrarReservaEnSheets(
+            user,
+            classDataForEmail
+        );
         return {
             success: true,
             message: "Reserva realizada correctamente.",
@@ -559,7 +869,7 @@ exports.reserveClass = onCall(
 
 
 exports.cancelClass = onCall(
-    { secrets: [resendApiKey] },
+    { secrets: [resendApiKey, googleServiceAccountJson] },
     async (request) => {
 
     if (!request.auth) {
@@ -661,6 +971,11 @@ exports.cancelClass = onCall(
             );
         }
 
+        await registrarCancelacionEnSheets(
+            user,
+            classDataForEmail
+        );
+
         return {
             success: true,
             message: "Reserva cancelada correctamente."
@@ -683,3 +998,49 @@ exports.cancelClass = onCall(
         );
     }
 });
+
+async function registrarCancelacionEnSheets(user, fitnessClass) {
+    try {
+        const credentials = JSON.parse(
+            googleServiceAccountJson.value()
+        );
+
+        const auth = new google.auth.GoogleAuth({
+            credentials,
+            scopes: [
+                "https://www.googleapis.com/auth/spreadsheets"
+            ]
+        });
+
+        const sheets = google.sheets({
+            version: "v4",
+            auth
+        });
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "CANCELACIONES!A:F",
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: [[
+                    new Date().toLocaleString("es-ES"),
+                    user.name,
+                    user.email,
+                    fitnessClass.title,
+                    fitnessClass.trainer,
+                    `${fitnessClass.date} ${fitnessClass.time}`
+                ]]
+            }
+        });
+
+        console.log(
+            `Cancelación registrada en Google Sheets: ${user.email} - ${fitnessClass.title}`
+        );
+
+    } catch (error) {
+        console.error(
+            "No se pudo registrar la cancelación en Google Sheets:",
+            error
+        );
+    }
+}
