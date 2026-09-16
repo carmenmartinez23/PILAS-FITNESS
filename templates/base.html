@@ -14,7 +14,10 @@
 </head>
 
 <body>
-  <header class="nav"><a class="brand" href="{{ url_for('index') }}"><span>F</span> REVITALÍZATE</a>
+  <header class="nav"><a class="brand" href="{{ url_for('index') }}">
+    <span class="brand-logo">
+      <img src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png" alt="REVITALÍZATE">
+    </span> REVITALÍZATE</a>
     <nav>
       <a href="{{ url_for('index') }}#clases">Clases</a>
       {% if g.user %}<a href="{{ url_for('dashboard') }}">Mis reservas</a><span class="greeting">Hola, {{
