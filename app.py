@@ -120,6 +120,11 @@ class Database:
         if self.postgres:
             statement = statement.replace("?", "%s")
         return self.connection.executemany(statement, parameters)
+    def rollback(self):
+        self.connection.rollback()
+
+    def commit(self):
+        self.connection.commit()
 
 
 def db():
@@ -1427,6 +1432,13 @@ def index():
     """).fetchall()
     return render_template("index.html", classes=classes)
 
+@app.route("/reservar/<class_id>")
+def reservar_clase(class_id):
+    return render_template(
+        "reservar.html",
+        class_id=class_id
+    )
+
 
 @app.route("/registro")
 def register():
@@ -1851,29 +1863,52 @@ def get_classes():
     ]
 def registrar_reserva_en_sheets(user, fitness_class):
     try:
+        app.logger.info("SHEETS - intentando registrar reserva...")
+
+        app.logger.info(
+            "SHEETS - usuario: %s | email: %s",
+            user["name"],
+            user["email"]
+        )
+
+        app.logger.info(
+            "SHEETS - clase: %s",
+            fitness_class["title"]
+        )
+
         hoja = google_sheet.worksheet("RESERVAS")
 
+        app.logger.info(
+            "SHEETS - hoja encontrada: %s",
+            hoja.title
+        )
+
+        fila = [
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+            user["name"],
+            user["email"],
+            fitness_class["title"],
+            fitness_class["trainer"],
+            f'{fitness_class["class_date"]} {fitness_class["class_time"]}',
+        ]
+
+        app.logger.info(
+            "SHEETS - fila a insertar: %s",
+            fila
+        )
+
         hoja.append_row(
-            [
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                user["name"],
-                user["email"],
-                fitness_class["title"],
-                fitness_class["trainer"],
-                f'{fitness_class["class_date"]} {fitness_class["class_time"]}',
-            ],
+            fila,
             value_input_option="USER_ENTERED",
         )
 
         app.logger.info(
-            "Reserva registrada en Google Sheets: %s - %s",
-            user["email"],
-            fitness_class["title"]
+            "SHEETS - ✅ reserva registrada correctamente"
         )
 
     except Exception as error:
-        app.logger.error(
-            "No se pudo registrar la reserva en Google Sheets: %s",
+        app.logger.exception(
+            "SHEETS - ❌ ERROR registrando reserva: %s",
             error
         )
 
