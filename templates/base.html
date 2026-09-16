@@ -18,15 +18,6 @@
     <span class="brand-logo">
       <img src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png" alt="REVITALÍZATE">
     </span> REVITALÍZATE</a>
-    <nav>
-      <a href="{{ url_for('index') }}#clases">Clases</a>
-      {% if g.user %}<a href="{{ url_for('dashboard') }}">Mis reservas</a><span class="greeting">Hola, {{
-        g.user['name'].split(' ')[0] }}</span>
-      <form action="{{ url_for('logout') }}" method="post" id="logout-form"><input type="hidden" name="csrf_token"
-          value="{{ csrf_token }}"><button class="link-button">Salir</button></form>
-      {% else %}<a href="{{ url_for('login') }}">Entrar</a><a class="nav-cta" href="{{ url_for('register') }}">Crear
-        cuenta</a>{% endif %}
-    </nav>
   </header>
   <main>{% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div
       class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}{% block content %}{% endblock %}</main>
