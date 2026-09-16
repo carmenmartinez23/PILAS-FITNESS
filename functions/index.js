@@ -9,17 +9,14 @@ initializeApp();
 
 const db = getFirestore();
 
-
 // ======================================================
 // SECRETS
 // ======================================================
 
-const resendApiKey =
-    defineSecret("RESEND_API_KEY");
+const resendApiKey = defineSecret("RESEND_API_KEY");
 
 const googleServiceAccountJson =
     defineSecret("GOOGLE_SERVICE_ACCOUNT_JSON");
-
 
 // ======================================================
 // GOOGLE SHEETS
@@ -28,22 +25,15 @@ const googleServiceAccountJson =
 const SPREADSHEET_ID =
     "1Nl_LtlQX-nVc4yUd0yd-HsQwceFXTe9CrUPdsKx449s";
 
-const CLASES_SHEET =
-    "CLASES";
-
-const RESERVAS_SHEET =
-    "RESERVAS";
-
-const CANCELACIONES_SHEET =
-    "CANCELACIONES";
-
+const CLASES_SHEET = "CLASES";
+const RESERVAS_SHEET = "RESERVAS";
+const CANCELACIONES_SHEET = "CANCELACIONES";
 
 // ======================================================
 // GOOGLE SHEETS - CONEXIÓN
 // ======================================================
 
 function obtenerClienteSheets() {
-
     const credentials =
         JSON.parse(
             googleServiceAccountJson.value()
@@ -63,13 +53,11 @@ function obtenerClienteSheets() {
     });
 }
 
-
 // ======================================================
 // CREAR PESTAÑA CLASES SI NO EXISTE
 // ======================================================
 
 async function asegurarPestanaClases(sheets) {
-
     const spreadsheet =
         await sheets.spreadsheets.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -79,8 +67,7 @@ async function asegurarPestanaClases(sheets) {
     const existeClases =
         spreadsheet.data.sheets?.some(
             sheet =>
-                sheet.properties?.title ===
-                CLASES_SHEET
+                sheet.properties?.title === CLASES_SHEET
         );
 
     if (existeClases) {
@@ -131,20 +118,15 @@ async function asegurarPestanaClases(sheets) {
     );
 }
 
-
 // ======================================================
 // OBTENER CLASES DESDE GOOGLE SHEETS
 // ======================================================
 
 async function obtenerClasesDesdeSheets() {
-
     const sheets =
         obtenerClienteSheets();
 
-    // Crear CLASES automáticamente si no existe
-    await asegurarPestanaClases(
-        sheets
-    );
+    await asegurarPestanaClases(sheets);
 
     const response =
         await sheets.spreadsheets.values.get({
@@ -156,7 +138,6 @@ async function obtenerClasesDesdeSheets() {
     const rows =
         response.data.values || [];
 
-    // Si solo existe la cabecera
     if (rows.length <= 1) {
         return [];
     }
@@ -168,14 +149,12 @@ async function obtenerClasesDesdeSheets() {
         i < rows.length;
         i++
     ) {
-
         const row =
             rows[i] || [];
 
         const id =
             String(row[0] || "").trim();
 
-        // Ignorar filas sin ID
         if (!id) {
             continue;
         }
@@ -228,40 +207,27 @@ async function obtenerClasesDesdeSheets() {
             activaValue === "1";
 
         classes.push({
-
             id,
-
             title,
-
             trainer,
-
             date,
-
             time,
-
             duration,
-
             capacity,
-
             description,
-
             imageUrl,
-
             activa
-
         });
     }
 
     return classes;
 }
 
-
 // ======================================================
 // SINCRONIZAR GOOGLE SHEETS → FIRESTORE
 // ======================================================
 
 async function sincronizarClasesConFirestore() {
-
     const classes =
         await obtenerClasesDesdeSheets();
 
@@ -271,9 +237,6 @@ async function sincronizarClasesConFirestore() {
     const batch =
         db.batch();
 
-    /*
-     * IDs que existen actualmente en CLASES.
-     */
     const sheetClassIds =
         new Set(
             classes.map(
@@ -281,7 +244,6 @@ async function sincronizarClasesConFirestore() {
                     classData.id
             )
         );
-
 
     // ==================================================
     // CLASES DE FIRESTORE QUE YA NO ESTÁN EN SHEETS
@@ -293,17 +255,13 @@ async function sincronizarClasesConFirestore() {
     firestoreSnapshot.forEach(doc => {
 
         /*
-         * NO borramos la clase.
-         *
+         * No borramos la clase.
          * Simplemente la desactivamos.
-         *
-         * Esto evita romper reservas históricas.
          */
 
         if (
             !sheetClassIds.has(doc.id)
         ) {
-
             batch.set(
                 doc.ref,
                 {
@@ -316,7 +274,6 @@ async function sincronizarClasesConFirestore() {
         }
     });
 
-
     // ==================================================
     // ACTUALIZAR / CREAR CLASES DE SHEETS
     // ==================================================
@@ -324,12 +281,10 @@ async function sincronizarClasesConFirestore() {
     for (
         const classData of classes
     ) {
-
         const classRef =
             classesCollection.doc(
                 classData.id
             );
-
 
         /*
          * Recuperamos la clase actual para conservar
@@ -344,17 +299,14 @@ async function sincronizarClasesConFirestore() {
                 ? existing.data()
                 : {};
 
-
         const bookedCount =
             Number(
                 existingData.bookedCount || 0
             );
 
-
         batch.set(
             classRef,
             {
-
                 title:
                     classData.title,
 
@@ -382,21 +334,14 @@ async function sincronizarClasesConFirestore() {
                 activa:
                     classData.activa,
 
-                /*
-                 * Las reservas las controla Firebase.
-                 * No vienen desde Google Sheets.
-                 */
-
                 bookedCount:
                     bookedCount
-
             },
             {
                 merge: true
             }
         );
     }
-
 
     // ==================================================
     // GUARDAR CAMBIOS
@@ -406,20 +351,15 @@ async function sincronizarClasesConFirestore() {
         classes.length > 0 ||
         firestoreSnapshot.size > 0
     ) {
-
         await batch.commit();
-
     }
-
 
     console.log(
         `Clases sincronizadas desde Google Sheets: ${classes.length}`
     );
 
-
     return classes;
 }
-
 
 // ======================================================
 // CLOUD FUNCTION - SINCRONIZAR CLASES
@@ -432,7 +372,6 @@ exports.syncClassesFromSheets =
                 googleServiceAccountJson
             ]
         },
-
         async () => {
 
             try {
@@ -441,12 +380,9 @@ exports.syncClassesFromSheets =
                     await sincronizarClasesConFirestore();
 
                 return {
-
                     success: true,
-
                     classesCount:
                         classes.length
-
                 };
 
             } catch (error) {
@@ -464,15 +400,17 @@ exports.syncClassesFromSheets =
         }
     );
 
-
 // ======================================================
 // REGISTRAR RESERVA EN GOOGLE SHEETS
 // ======================================================
+
 async function registrarReservaEnSheets(
     booking,
     fitnessClass
 ) {
+
     try {
+
         const sheets =
             obtenerClienteSheets();
 
@@ -488,6 +426,7 @@ async function registrarReservaEnSheets(
 
             requestBody: {
                 values: [[
+
                     new Date()
                         .toLocaleString("es-ES"),
 
@@ -508,6 +447,7 @@ async function registrarReservaEnSheets(
                     fitnessClass.date,
 
                     fitnessClass.time
+
                 ]]
             }
         });
@@ -533,7 +473,9 @@ async function registrarCancelacionEnSheets(
     booking,
     fitnessClass
 ) {
+
     try {
+
         const sheets =
             obtenerClienteSheets();
 
@@ -549,6 +491,7 @@ async function registrarCancelacionEnSheets(
 
             requestBody: {
                 values: [[
+
                     new Date()
                         .toLocaleString("es-ES"),
 
@@ -569,6 +512,7 @@ async function registrarCancelacionEnSheets(
                     fitnessClass.date,
 
                     fitnessClass.time
+
                 ]]
             }
         });
@@ -615,14 +559,12 @@ async function sendResendEmail({
 
                 body:
                     JSON.stringify({
-
                         from:
                             "REVITALÍZATE <cuentas@pilas-fitness.es>",
 
                         to: [to],
 
                         subject:
-
                             subject,
 
                         html:
@@ -630,7 +572,6 @@ async function sendResendEmail({
                     })
             }
         );
-
 
     if (!response.ok) {
 
@@ -644,7 +585,6 @@ async function sendResendEmail({
 
     return response.json();
 }
-
 
 // ======================================================
 // FORMATEAR FECHA
@@ -670,7 +610,6 @@ function formatSpanishDate(
     );
 }
 
-
 // ======================================================
 // HTML DE LOS EMAILS
 // ======================================================
@@ -684,42 +623,33 @@ function createBookingEmailHtml({
     const isCancellation =
         type === "cancelled";
 
-
     const formattedDate =
         formatSpanishDate(
             classData.date
         );
-
 
     const eyebrow =
         isCancellation
             ? "RESERVA CANCELADA"
             : "RESERVA CONFIRMADA";
 
-
     const title =
         isCancellation
             ? "Tu reserva ha<br>quedado cancelada"
             : "¡Tu plaza está<br>reservada!";
 
-
     const message =
         isCancellation
-
             ? `Hola ${name}, tu reserva para esta clase ha sido cancelada correctamente.`
-
             : `Hola ${name}, tu reserva se ha realizado correctamente. ¡Te esperamos en clase!`;
-
 
     const footerMessage =
         isCancellation
-
             ? "La plaza queda disponible nuevamente para otro usuario."
-
             : "Si finalmente no puedes asistir, recuerda cancelar tu reserva desde tu área de miembro.";
 
-
     return `
+
 <!doctype html>
 
 <html lang="es">
@@ -734,14 +664,14 @@ function createBookingEmailHtml({
     >
 
     <title>
-        ${isCancellation
-            ? "Reserva cancelada"
-            : "Reserva confirmada"
+        ${
+            isCancellation
+                ? "Reserva cancelada"
+                : "Reserva confirmada"
         } · REVITALÍZATE
     </title>
 
 </head>
-
 
 <body style="
     margin:0;
@@ -750,7 +680,6 @@ function createBookingEmailHtml({
     font-family:Arial, Helvetica, sans-serif;
     color:#083b2a;
 ">
-
 
 <table
     width="100%"
@@ -763,11 +692,9 @@ function createBookingEmailHtml({
     "
 >
 
-
 <tr>
 
 <td align="center">
-
 
 <table
     width="100%"
@@ -783,7 +710,6 @@ function createBookingEmailHtml({
     "
 >
 
-
 <!-- CABECERA -->
 
 <tr>
@@ -796,16 +722,13 @@ function createBookingEmailHtml({
     "
 >
 
-
 <table
     cellpadding="0"
     cellspacing="0"
     border="0"
 >
 
-
 <tr>
-
 
 <td
     align="center"
@@ -824,7 +747,6 @@ function createBookingEmailHtml({
     F
 </td>
 
-
 <td style="
     padding-left:12px;
     color:#ffffff;
@@ -835,7 +757,6 @@ function createBookingEmailHtml({
     REVITALÍZATE
 </td>
 
-
 </tr>
 
 </table>
@@ -843,7 +764,6 @@ function createBookingEmailHtml({
 </td>
 
 </tr>
-
 
 <!-- CONTENIDO -->
 
@@ -853,7 +773,6 @@ function createBookingEmailHtml({
     padding:48px 42px 42px;
 ">
 
-
 <p style="
     margin:0 0 14px;
     color:#39705a;
@@ -862,9 +781,10 @@ function createBookingEmailHtml({
     letter-spacing:2.5px;
     text-transform:uppercase;
 ">
-    ${eyebrow}
-</p>
 
+    ${eyebrow}
+
+</p>
 
 <h1 style="
     margin:0 0 22px;
@@ -874,9 +794,10 @@ function createBookingEmailHtml({
     font-weight:800;
     letter-spacing:-1.2px;
 ">
-    ${title}
-</h1>
 
+    ${title}
+
+</h1>
 
 <p style="
     margin:0 0 28px;
@@ -884,9 +805,10 @@ function createBookingEmailHtml({
     font-size:15px;
     line-height:1.7;
 ">
-    ${message}
-</p>
 
+    ${message}
+
+</p>
 
 <!-- DATOS DE LA CLASE -->
 
@@ -898,7 +820,6 @@ function createBookingEmailHtml({
     style="margin-bottom:28px;"
 >
 
-
 <tr>
 
 <td style="
@@ -908,7 +829,6 @@ function createBookingEmailHtml({
     padding:18px;
 ">
 
-
 <p style="
     margin:0 0 8px;
     color:#39705a;
@@ -917,9 +837,10 @@ function createBookingEmailHtml({
     letter-spacing:1.5px;
     text-transform:uppercase;
 ">
-    CLASE
-</p>
 
+    CLASE
+
+</p>
 
 <p style="
     margin:0 0 14px;
@@ -927,43 +848,46 @@ function createBookingEmailHtml({
     font-size:20px;
     font-weight:800;
 ">
+
     ${classData.title}
-</p>
 
+</p>
 
 <p style="
     margin:0 0 6px;
     color:#39705a;
     font-size:13px;
 ">
+
     📅 ${formattedDate}
-</p>
 
+</p>
 
 <p style="
     margin:0 0 6px;
     color:#39705a;
     font-size:13px;
 ">
-    🕐 ${classData.time}
-</p>
 
+    🕐 ${classData.time}
+
+</p>
 
 <p style="
     margin:0;
     color:#39705a;
     font-size:13px;
 ">
-    👤 ${classData.trainer}
-</p>
 
+    👤 ${classData.trainer}
+
+</p>
 
 </td>
 
 </tr>
 
 </table>
-
 
 <p style="
     margin:0;
@@ -972,14 +896,14 @@ function createBookingEmailHtml({
     line-height:1.6;
     text-align:center;
 ">
-    ${footerMessage}
-</p>
 
+    ${footerMessage}
+
+</p>
 
 </td>
 
 </tr>
-
 
 <!-- FOOTER -->
 
@@ -994,7 +918,6 @@ function createBookingEmailHtml({
     "
 >
 
-
 <p style="
     margin:0 0 7px;
     color:#083b2a;
@@ -1002,26 +925,26 @@ function createBookingEmailHtml({
     font-weight:800;
     letter-spacing:2px;
 ">
-    REVITALÍZATE
-</p>
 
+    REVITALÍZATE
+
+</p>
 
 <p style="
     margin:0;
     color:#6c8b7b;
     font-size:10px;
 ">
-    Mueve el cuerpo. Cambia el día.
-</p>
 
+    Mueve el cuerpo. Cambia el día.
+
+</p>
 
 </td>
 
 </tr>
 
-
 </table>
-
 
 <p style="
     margin:20px 10px 0;
@@ -1029,9 +952,10 @@ function createBookingEmailHtml({
     font-size:10px;
     text-align:center;
 ">
-    Este correo se ha enviado automáticamente.
-</p>
 
+    Este correo se ha enviado automáticamente.
+
+</p>
 
 </td>
 
@@ -1039,13 +963,12 @@ function createBookingEmailHtml({
 
 </table>
 
-
 </body>
 
 </html>
+
 `;
 }
-
 
 // ======================================================
 // EMAIL DE CONFIRMACIÓN
@@ -1058,7 +981,6 @@ async function sendBookingConfirmationEmail(
 
     const html =
         createBookingEmailHtml({
-
             name:
                 user.name,
 
@@ -1067,9 +989,7 @@ async function sendBookingConfirmationEmail(
 
             type:
                 "confirmed"
-
         });
-
 
     await sendResendEmail({
 
@@ -1081,10 +1001,8 @@ async function sendBookingConfirmationEmail(
 
         html:
             html
-
     });
 }
-
 
 // ======================================================
 // EMAIL DE CANCELACIÓN
@@ -1097,7 +1015,6 @@ async function sendBookingCancellationEmail(
 
     const html =
         createBookingEmailHtml({
-
             name:
                 user.name,
 
@@ -1106,9 +1023,7 @@ async function sendBookingCancellationEmail(
 
             type:
                 "cancelled"
-
         });
-
 
     await sendResendEmail({
 
@@ -1120,10 +1035,8 @@ async function sendBookingCancellationEmail(
 
         html:
             html
-
     });
 }
-
 
 // ======================================================
 // RESERVAR CLASE
@@ -1150,45 +1063,65 @@ exports.reserveClass =
             } = request.data || {};
 
             // -----------------------------------------
-            // 1. Validar datos básicos
+            // 1. VALIDAR CLASS ID
             // -----------------------------------------
 
             if (
-                !classId ||
-                typeof classId !== "string"
+                classId === undefined ||
+                classId === null ||
+                String(classId).trim() === ""
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "La clase seleccionada no es válida."
                 );
             }
 
+            const normalizedClassId =
+                String(classId).trim();
+
+            // -----------------------------------------
+            // 2. VALIDAR NOMBRE
+            // -----------------------------------------
+
             if (
                 !name ||
                 typeof name !== "string" ||
                 name.trim().length < 2
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Introduce un nombre válido."
                 );
             }
 
+            // -----------------------------------------
+            // 3. VALIDAR TELÉFONO
+            // -----------------------------------------
+
             if (
                 !phone ||
                 typeof phone !== "string" ||
                 phone.trim().length < 6
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Introduce un número de teléfono válido."
                 );
             }
 
+            // -----------------------------------------
+            // 4. VALIDAR EMAIL
+            // -----------------------------------------
+
             if (
                 !email ||
                 typeof email !== "string"
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Introduce un correo electrónico válido."
@@ -1201,17 +1134,27 @@ exports.reserveClass =
             const emailRegex =
                 /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-            if (!emailRegex.test(normalizedEmail)) {
+            if (
+                !emailRegex.test(
+                    normalizedEmail
+                )
+            ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Introduce un correo electrónico válido."
                 );
             }
 
+            // -----------------------------------------
+            // 5. VALIDAR FECHA DE NACIMIENTO
+            // -----------------------------------------
+
             if (
                 !birthDate ||
                 typeof birthDate !== "string"
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Introduce tu fecha de nacimiento."
@@ -1228,31 +1171,53 @@ exports.reserveClass =
                     parsedBirthDate.getTime()
                 )
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "La fecha de nacimiento no es válida."
                 );
             }
 
+            // -----------------------------------------
+            // 6. VALIDAR NÚMERO DE ENTRADA
+            // -----------------------------------------
+
+            if (
+                entryNumber === undefined ||
+                entryNumber === null ||
+                String(entryNumber).trim() === ""
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Debes indicar tu número de entrada."
+                );
+            }
+
             const normalizedEntryNumber =
-                String(entryNumber || "")
-                    .trim();
+                String(entryNumber).trim();
 
             const entryNumberValue =
                 Number(
                     normalizedEntryNumber
                 );
 
+            /*
+             * 0 = cliente de prueba
+             * 1-1700 = clientes reales
+             */
+
             if (
                 !Number.isInteger(
                     entryNumberValue
                 ) ||
-                entryNumberValue < 1 ||
+                entryNumberValue < 0 ||
                 entryNumberValue > 1700
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
-                    "El número de entrada debe estar entre 1 y 1700."
+                    "El número de entrada debe estar entre 0 y 1700."
                 );
             }
 
@@ -1263,18 +1228,19 @@ exports.reserveClass =
                 name.trim();
 
             // -----------------------------------------
-            // 2. Obtener clase
+            // 7. OBTENER CLASE
             // -----------------------------------------
 
             const classRef =
                 db
                     .collection("classes")
-                    .doc(classId);
+                    .doc(normalizedClassId);
 
             const classSnapshot =
                 await classRef.get();
 
             if (!classSnapshot.exists) {
+
                 throw new HttpsError(
                     "not-found",
                     "La clase no existe."
@@ -1287,6 +1253,7 @@ exports.reserveClass =
             if (
                 classData.activa === false
             ) {
+
                 throw new HttpsError(
                     "failed-precondition",
                     "Esta clase ya no está disponible."
@@ -1294,7 +1261,7 @@ exports.reserveClass =
             }
 
             // -----------------------------------------
-            // 3. Comprobar plazas
+            // 8. COMPROBAR CAPACIDAD
             // -----------------------------------------
 
             const capacity =
@@ -1303,7 +1270,7 @@ exports.reserveClass =
                 );
 
             // -----------------------------------------
-            // 4. Buscar reservas de la entrada
+            // 9. BUSCAR RESERVAS DEL NÚMERO
             // -----------------------------------------
 
             const bookingsSnapshot =
@@ -1322,7 +1289,7 @@ exports.reserveClass =
                     .get();
 
             // -----------------------------------------
-            // 5. Comprobar que el email coincide
+            // 10. COMPROBAR EMAIL DEL NÚMERO
             // -----------------------------------------
 
             if (
@@ -1337,17 +1304,16 @@ exports.reserveClass =
                     firstBooking.email !==
                     normalizedEmail
                 ) {
+
                     throw new HttpsError(
                         "already-exists",
                         "Este número de entrada ya está asociado a otro correo electrónico."
                     );
                 }
-
             }
 
             // -----------------------------------------
-            // 6. Comprobar que el email no usa
-            //    otro número de entrada
+            // 11. BUSCAR RESERVAS DEL EMAIL
             // -----------------------------------------
 
             const emailBookingsSnapshot =
@@ -1365,6 +1331,11 @@ exports.reserveClass =
                     )
                     .get();
 
+            // -----------------------------------------
+            // 12. COMPROBAR QUE EL EMAIL NO USA
+            //     OTRO NÚMERO DE ENTRADA
+            // -----------------------------------------
+
             if (
                 emailBookingsSnapshot.size > 0
             ) {
@@ -1379,21 +1350,22 @@ exports.reserveClass =
                     ) !==
                     entryNumberValue
                 ) {
+
                     throw new HttpsError(
                         "already-exists",
                         "Este correo electrónico ya está asociado a otro número de entrada."
                     );
                 }
-
             }
 
             // -----------------------------------------
-            // 7. Máximo 3 reservas activas
+            // 13. MÁXIMO 3 RESERVAS ACTIVAS
             // -----------------------------------------
 
             if (
-                bookingsSnapshot.size >= 3
+                emailBookingsSnapshot.size >= 3
             ) {
+
                 throw new HttpsError(
                     "resource-exhausted",
                     "Ya tienes el máximo de 3 reservas activas."
@@ -1401,7 +1373,7 @@ exports.reserveClass =
             }
 
             // -----------------------------------------
-            // 8. Comprobar mismo horario
+            // 14. COMPROBAR MISMO HORARIO
             // -----------------------------------------
 
             const sameSchedule =
@@ -1413,14 +1385,15 @@ exports.reserveClass =
 
                         return (
                             booking.classDate ===
-                            classData.date &&
-                            booking.classTime ===
-                            classData.time
-                        );
+                                classData.date &&
 
+                            booking.classTime ===
+                                classData.time
+                        );
                     });
 
             if (sameSchedule) {
+
                 throw new HttpsError(
                     "already-exists",
                     "Ya tienes una reserva en este horario."
@@ -1428,7 +1401,7 @@ exports.reserveClass =
             }
 
             // -----------------------------------------
-            // 9. Crear reserva dentro de transacción
+            // 15. COMPROBAR PLAZAS ACTUALES
             // -----------------------------------------
 
             const placesSnapshot =
@@ -1445,13 +1418,17 @@ exports.reserveClass =
             if (
                 bookedCount >= capacity
             ) {
+
                 throw new HttpsError(
                     "resource-exhausted",
                     "Lo sentimos, la clase está completa."
                 );
             }
 
-            // Código interno único de reserva
+            // -----------------------------------------
+            // 16. CREAR RESERVA
+            // -----------------------------------------
+
             const bookingId =
                 crypto.randomUUID();
 
@@ -1461,9 +1438,10 @@ exports.reserveClass =
                     .doc(bookingId);
 
             const booking = {
+
                 bookingId,
 
-                classId,
+                normalizedClassId,
 
                 entryNumber:
                     entryNumberValue,
@@ -1492,6 +1470,10 @@ exports.reserveClass =
                     FieldValue.serverTimestamp()
             };
 
+            // -----------------------------------------
+            // 17. TRANSACCIÓN
+            // -----------------------------------------
+
             await db.runTransaction(
                 async transaction => {
 
@@ -1503,6 +1485,7 @@ exports.reserveClass =
                     if (
                         !classTransactionSnapshot.exists
                     ) {
+
                         throw new HttpsError(
                             "not-found",
                             "La clase no existe."
@@ -1515,6 +1498,7 @@ exports.reserveClass =
                     if (
                         transactionClassData.activa === false
                     ) {
+
                         throw new HttpsError(
                             "failed-precondition",
                             "Esta clase ya no está disponible."
@@ -1535,6 +1519,7 @@ exports.reserveClass =
                         transactionBookedCount >=
                         transactionCapacity
                     ) {
+
                         throw new HttpsError(
                             "resource-exhausted",
                             "Lo sentimos, la clase está completa."
@@ -1553,12 +1538,11 @@ exports.reserveClass =
                                 transactionBookedCount + 1
                         }
                     );
-
                 }
             );
 
             // -----------------------------------------
-            // 10. Registrar en Google Sheets
+            // 18. GOOGLE SHEETS
             // -----------------------------------------
 
             await registrarReservaEnSheets(
@@ -1567,7 +1551,7 @@ exports.reserveClass =
             );
 
             // -----------------------------------------
-            // 11. Enviar email
+            // 19. EMAIL
             // -----------------------------------------
 
             try {
@@ -1596,7 +1580,12 @@ exports.reserveClass =
                 );
             }
 
+            // -----------------------------------------
+            // 20. RESPUESTA
+            // -----------------------------------------
+
             return {
+
                 success:
                     true,
 
@@ -1623,31 +1612,44 @@ exports.cancelClass =
                 googleServiceAccountJson
             ]
         },
+
         async (request) => {
+
             const {
                 classId,
                 entryNumber,
                 email
             } = request.data || {};
+
             // ------------------------------------------
-            // 1. VALIDAR DATOS
+            // 1. VALIDAR CLASS ID
             // ------------------------------------------
+
             if (
                 classId === undefined ||
                 classId === null ||
                 String(classId).trim() === ""
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "La clase seleccionada no es válida."
                 );
             }
 
-const normalizedClassId = String(classId).trim();
+            const normalizedClassId =
+                String(classId).trim();
+
+            // ------------------------------------------
+            // 2. VALIDAR NÚMERO DE ENTRADA
+            // ------------------------------------------
 
             if (
-                !entryNumber
+                entryNumber === undefined ||
+                entryNumber === null ||
+                String(entryNumber).trim() === ""
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Debes indicar tu número de entrada."
@@ -1657,23 +1659,34 @@ const normalizedClassId = String(classId).trim();
             const entryNumberValue =
                 Number(entryNumber);
 
+            /*
+             * 0 = cliente de prueba
+             * 1-1700 = clientes reales
+             */
+
             if (
                 !Number.isInteger(
                     entryNumberValue
                 ) ||
-                entryNumberValue < 1 ||
+                entryNumberValue < 0 ||
                 entryNumberValue > 1700
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
-                    "El número de entrada debe estar entre 1 y 1700."
+                    "El número de entrada debe estar entre 0 y 1700."
                 );
             }
+
+            // ------------------------------------------
+            // 3. VALIDAR EMAIL
+            // ------------------------------------------
 
             if (
                 !email ||
                 typeof email !== "string"
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "Debes indicar tu correo electrónico."
@@ -1693,6 +1706,7 @@ const normalizedClassId = String(classId).trim();
                     normalizedEmail
                 )
             ) {
+
                 throw new HttpsError(
                     "invalid-argument",
                     "El correo electrónico no es válido."
@@ -1700,25 +1714,25 @@ const normalizedClassId = String(classId).trim();
             }
 
             // ------------------------------------------
-            // 2. REFERENCIA A LA CLASE
+            // 4. REFERENCIA A LA CLASE
             // ------------------------------------------
 
             const classRef =
                 db
                     .collection("classes")
-                    .doc(classId);
+                    .doc(normalizedClassId);
 
             // ------------------------------------------
-            // 3. BUSCAR RESERVA
+            // 5. BUSCAR RESERVA
             // ------------------------------------------
 
             const bookingsSnapshot =
                 await db
                     .collection("bookings")
                     .where(
-                        "classId",
+                        "normalizedClassId",
                         "==",
-                        classId
+                        normalizedClassId
                     )
                     .where(
                         "entryNumber",
@@ -1741,6 +1755,7 @@ const normalizedClassId = String(classId).trim();
             if (
                 bookingsSnapshot.empty
             ) {
+
                 throw new HttpsError(
                     "not-found",
                     "No se ha encontrado una reserva con esos datos."
@@ -1760,7 +1775,7 @@ const normalizedClassId = String(classId).trim();
                 null;
 
             // ------------------------------------------
-            // 4. CANCELAR EN TRANSACCIÓN
+            // 6. CANCELAR EN TRANSACCIÓN
             // ------------------------------------------
 
             try {
@@ -1781,6 +1796,7 @@ const normalizedClassId = String(classId).trim();
                         if (
                             !bookingSnapshot.exists
                         ) {
+
                             throw new HttpsError(
                                 "not-found",
                                 "La reserva ya no existe."
@@ -1790,6 +1806,7 @@ const normalizedClassId = String(classId).trim();
                         if (
                             !classSnapshot.exists
                         ) {
+
                             throw new HttpsError(
                                 "not-found",
                                 "La clase ya no existe."
@@ -1803,6 +1820,7 @@ const normalizedClassId = String(classId).trim();
                             currentBooking.status !==
                             "active"
                         ) {
+
                             throw new HttpsError(
                                 "not-found",
                                 "Esta reserva ya ha sido cancelada."
@@ -1822,7 +1840,7 @@ const normalizedClassId = String(classId).trim();
                             );
 
                         // ----------------------------------
-                        // Marcar reserva como cancelada
+                        // MARCAR RESERVA COMO CANCELADA
                         // ----------------------------------
 
                         transaction.update(
@@ -1837,7 +1855,7 @@ const normalizedClassId = String(classId).trim();
                         );
 
                         // ----------------------------------
-                        // Liberar plaza
+                        // LIBERAR PLAZA
                         // ----------------------------------
 
                         transaction.update(
@@ -1850,16 +1868,16 @@ const normalizedClassId = String(classId).trim();
                                     )
                             }
                         );
-
                     }
                 );
 
                 // --------------------------------------
-                // 5. GOOGLE SHEETS
+                // 7. GOOGLE SHEETS
                 // --------------------------------------
 
                 const bookingForSheets = {
                     ...bookingData,
+
                     status:
                         "cancelled"
                 };
@@ -1870,7 +1888,7 @@ const normalizedClassId = String(classId).trim();
                 );
 
                 // --------------------------------------
-                // 6. EMAIL
+                // 8. EMAIL
                 // --------------------------------------
 
                 try {
@@ -1888,7 +1906,12 @@ const normalizedClassId = String(classId).trim();
                     );
                 }
 
+                // --------------------------------------
+                // 9. RESPUESTA
+                // --------------------------------------
+
                 return {
+
                     success:
                         true,
 
