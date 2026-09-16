@@ -1244,15 +1244,13 @@ exports.reserveClass =
                 );
 
             if (
-                !Number.isInteger(
-                    entryNumberValue
-                ) ||
-                entryNumberValue < 1 ||
+                !Number.isInteger(entryNumberValue) ||
+                entryNumberValue < 0 ||
                 entryNumberValue > 1700
             ) {
                 throw new HttpsError(
                     "invalid-argument",
-                    "El número de entrada debe estar entre 1 y 1700."
+                    "El número de entrada debe estar entre 0 y 1700."
                 );
             }
 
