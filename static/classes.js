@@ -1,14 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 
 import {
-    getFirestore,
-    collection,
-    getDocs
+getFirestore,
+collection,
+getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 import {
-    getFunctions,
-    httpsCallable
+getFunctions,
+httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -18,43 +18,37 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const functions = getFunctions(
-    app,
-    "us-central1"
+app,
+"us-central1"
 );
 
-const syncClassesFunction =
-    httpsCallable(
-        functions,
-        "syncClassesFromSheets"
-    );
+const syncClassesFunction = httpsCallable(
+functions,
+"syncClassesFromSheets"
+);
 
-const classGrid =
-    document.getElementById("class-grid");
+const classGrid = document.getElementById("class-grid");
 
 /* =========================================================
-HORARIOS DISPONIBLES
+HORARIOS
 ========================================================= */
 
 const SCHEDULES = [
-    {
-        id: "10:30-11:10",
-        label: "10:30 — 11:10",
-        start: "10:30"
-    },
-    {
-        id: "11:10-11:50",
-        label: "11:10 — 11:50",
-        start: "11:10"
-    },
-    {
-        id: "11:50-12:30",
-        label: "11:50 — 12:30",
-        start: "11:50"
-    }
+{
+id: "10:30",
+label: "10:30 — 11:10"
+},
+{
+id: "11:10",
+label: "11:10 — 11:50"
+},
+{
+id: "11:50",
+label: "11:50 — 12:30"
+}
 ];
 
 let allClasses = [];
-
 let selectedSchedule = null;
 
 /* =========================================================
@@ -70,10 +64,9 @@ async function loadClasses() {
 
 
         // Leer clases desde Firestore
-        const snapshot =
-            await getDocs(
-                collection(db, "classes")
-            );
+        const snapshot = await getDocs(
+            collection(db, "classes")
+        );
 
 
         allClasses = [];
@@ -101,18 +94,14 @@ async function loadClasses() {
         // Ordenar por fecha y hora
         allClasses.sort((a, b) => {
 
-            const dateA =
-                `${a.date} ${a.time}`;
-
-            const dateB =
-                `${b.date} ${b.time}`;
+            const dateA = `${a.date} ${a.time}`;
+            const dateB = `${b.date} ${b.time}`;
 
             return dateA.localeCompare(dateB);
 
         });
 
 
-        // Mostrar selector de horarios
         renderSchedules();
 
 
@@ -132,7 +121,6 @@ async function loadClasses() {
         `;
 
     }
-
 }
 
 /* =========================================================
@@ -148,10 +136,11 @@ function renderSchedules() {
     if (!section) {
 
         console.error(
-            "No existe #class-schedules en el HTML."
+            "No existe el elemento #class-schedules."
         );
 
         return;
+
     }
 
 
@@ -163,6 +152,7 @@ function renderSchedules() {
 
     heading.className =
         "schedule-heading";
+
 
     heading.innerHTML = `
         <p class="eyebrow">
@@ -202,8 +192,7 @@ function renderSchedules() {
 
 
         if (
-            selectedSchedule ===
-            schedule.id
+            selectedSchedule === schedule.id
         ) {
 
             button.classList.add("selected");
@@ -217,12 +206,12 @@ function renderSchedules() {
             </span>
 
             <small>
-                ${classesForSchedule.length
-            }
-                ${classesForSchedule.length === 1
-                ? "clase"
-                : "clases"
-            }
+                ${classesForSchedule.length}
+                ${
+                    classesForSchedule.length === 1
+                        ? "clase"
+                        : "clases"
+                }
             </small>
 
             <b>→</b>
@@ -238,10 +227,6 @@ function renderSchedules() {
 
                 renderSchedules();
 
-                renderClasses(
-                    classesForSchedule
-                );
-
             }
         );
 
@@ -254,8 +239,10 @@ function renderSchedules() {
     section.appendChild(buttons);
 
 
-    // Si no hay horario seleccionado,
-    // no mostramos todavía ninguna clase.
+    /* -----------------------------------------------------
+    Todavía no se ha elegido horario
+    ----------------------------------------------------- */
+
     if (selectedSchedule === null) {
 
         classGrid.innerHTML = `
@@ -268,63 +255,59 @@ function renderSchedules() {
         `;
 
         return;
-    }
-
-
-    const selected =
-        SCHEDULES.find(
-            schedule =>
-                schedule.id === selectedSchedule
-        );
-
-
-    if (selected) {
-
-        renderClasses(
-            getClassesForSchedule(selected)
-        );
 
     }
+
+
+    /* -----------------------------------------------------
+    Mostrar clases del horario seleccionado
+    ----------------------------------------------------- */
+
+    const selectedClasses =
+        getClassesForSchedule({
+            id: selectedSchedule
+        });
+
+
+    renderClasses(selectedClasses);
 
 }
 
 /* =========================================================
-OBTENER CLASES DE UN HORARIO
+OBTENER CLASES DEL HORARIO
 ========================================================= */
 
 function getClassesForSchedule(schedule) {
 
-    return allClasses.filter(classItem => {
-
-        const classTime =
-            normalizeTime(classItem.time);
-
-
-        return classTime === schedule.start;
-
-    });
-    ```
-
-}
-
-/* =========================================================
-NORMALIZAR HORA
-========================================================= */
-
-function normalizeTime(time) {
-
 ```
-    if (!time) {
-        return "";
+return allClasses.filter(classItem => {
+
+    if (!classItem.time) {
+        return false;
     }
 
 
-    return String(time)
-        .trim()
-        .replace(/\s/g, "")
-        .split("-")[0]
-        .trim();
-    ```
+    /*
+     * En Google Sheets la hora puede aparecer como:
+     *
+     * 10:30
+     * 10:30 - 11:10
+     * 10:30-11:10
+     *
+     * Cogemos solamente la hora inicial.
+     */
+
+    const time =
+        String(classItem.time)
+            .trim()
+            .replace(/\s/g, "")
+            .split("-")[0];
+
+
+    return time === schedule.id;
+
+});
+```
 
 }
 
@@ -333,43 +316,19 @@ MOSTRAR CLASES
 ========================================================= */
 
 function renderClasses(classes) {
-
-```
     classGrid.innerHTML = "";
 
 
-    if (classes.length === 0) {
-
-        classGrid.innerHTML = `
-        <div class="schedule-empty">
-
-            <p class="eyebrow">
-                SIN CLASES
-            </p>
-
-            <h3>
-                No hay clases en este horario.
-            </h3>
-
-            <p>
-                Prueba seleccionando otra franja horaria.
-            </p>
-
-        </div>
-    `;
-
-        return;
-
-    }
-
-
-    // Título del horario seleccionado
     const selected =
         SCHEDULES.find(
             schedule =>
                 schedule.id === selectedSchedule
         );
 
+
+    /* -----------------------------------------------------
+    Cabecera del horario
+    ----------------------------------------------------- */
 
     const heading =
         document.createElement("div");
@@ -379,24 +338,26 @@ function renderClasses(classes) {
 
 
     heading.innerHTML = `
-    <div>
-        <p class="eyebrow">
-            HORARIO SELECCIONADO
-        </p>
+        <div>
 
-        <h2>
-            ${selected.label}
-        </h2>
-    </div>
+            <p class="eyebrow">
+                HORARIO SELECCIONADO
+            </p>
 
-    <button
-        type="button"
-        class="change-schedule"
-        id="change-schedule"
-    >
-        Cambiar horario
-    </button>
-`;
+            <h2>
+                ${selected ? selected.label : ""}
+            </h2>
+
+        </div>
+
+        <button
+            type="button"
+            class="change-schedule"
+            id="change-schedule"
+        >
+            Cambiar horario
+        </button>
+    `;
 
 
     classGrid.appendChild(heading);
@@ -416,7 +377,44 @@ function renderClasses(classes) {
         );
 
 
-    // Contenedor de tarjetas
+    /* -----------------------------------------------------
+    No hay clases
+    ----------------------------------------------------- */
+
+    if (classes.length === 0) {
+
+        const empty =
+            document.createElement("div");
+
+        empty.className =
+            "schedule-empty";
+
+
+        empty.innerHTML = `
+            <p class="eyebrow">
+                SIN CLASES
+            </p>
+
+            <h3>
+                No hay clases en este horario.
+            </h3>
+
+            <p>
+                Prueba seleccionando otra franja horaria.
+            </p>
+        `;
+
+
+        classGrid.appendChild(empty);
+
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+    Tarjetas
+    ----------------------------------------------------- */
+
     const cards =
         document.createElement("div");
 
@@ -444,75 +442,79 @@ function renderClasses(classes) {
 
 
         card.innerHTML = `
-        <img
-            src="${classItem.imageUrl || ""}"
-            alt="${classItem.title || "Clase"}"
-        >
+            <img
+                src="${classItem.imageUrl || ""}"
+                alt="${classItem.title || "Clase"}"
+            >
 
-        <div class="card-body">
+            <div class="card-body">
 
-            <div class="card-top">
+                <div class="card-top">
 
-                <span>
-                    ${classItem.duration || ""} MIN
-                </span>
+                    <span>
+                        ${classItem.duration || ""} MIN
+                    </span>
 
-                <span
-                    class="availability ${isFull ? "full" : ""}"
-                >
-                    ${isFull
-                ? "Clase completa"
-                : `${placesLeft} plazas`
-            }
-                </span>
+                    <span
+                        class="availability ${isFull ? "full" : ""}"
+                    >
+                        ${
+                            isFull
+                                ? "Clase completa"
+                                : `${placesLeft} plazas`
+                        }
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    ${classItem.title || ""}
+                </h3>
+
+
+                <p>
+                    ${classItem.trainer || ""}
+                    ·
+                    ${formatDate(classItem.date)}
+                    ·
+                    ${classItem.time || ""}
+                </p>
+
+
+                <p class="description">
+                    ${classItem.description || ""}
+                </p>
+
+
+                ${
+                    isFull
+                        ? `
+                            <button
+                                class="reserve"
+                                disabled
+                            >
+                                Clase completa
+                            </button>
+                        `
+                        : `
+                            <a
+                                class="reserve"
+                                href="/reservar/${encodeURIComponent(classItem.id)}"
+                            >
+                                Reservar plaza <b>→</b>
+                            </a>
+                        `
+                }
 
             </div>
+        `;
 
-
-            <h3>
-                ${classItem.title || ""}
-            </h3>
-
-
-            <p>
-                ${classItem.trainer || ""}
-                ·
-                ${formatDate(classItem.date)}
-                ·
-                ${classItem.time || ""}
-            </p>
-
-
-            <p class="description">
-                ${classItem.description || ""}
-            </p>
-
-
-            ${isFull
-                ? `
-                        <button
-                            class="reserve"
-                            disabled
-                        >
-                            Clase completa
-                        </button>
-                    `
-                : `
-                        <a
-                            class="reserve"
-                            href="/reservar/${encodeURIComponent(classItem.id)}"
-                        >
-                            Reservar plaza <b>→</b>
-                        </a>
-                    `
-            }
-
-        </div>
-    `;
 
         cards.appendChild(card);
 
     });
+
 
     classGrid.appendChild(cards);
 
