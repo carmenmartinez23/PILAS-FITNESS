@@ -617,11 +617,20 @@ function formatSpanishDate(
 function createBookingEmailHtml({
     name,
     classData,
-    type
+    type,
+    classId,
+    entryNumber,
+    email
 }) {
 
     const isCancellation =
         type === "cancelled";
+
+    const cancellationUrl =
+        `https://pilas-fitness.onrender.com/cancelar` +
+        `?classId=${encodeURIComponent(classId)}` +
+        `&entryNumber=${encodeURIComponent(entryNumber)}` +
+        `&email=${encodeURIComponent(email)}`;
 
     const formattedDate =
         formatSpanishDate(
@@ -890,7 +899,57 @@ function createBookingEmailHtml({
 </table>
 
 <p style="
-    margin:0;
+    margin:0 0 22px;
+    color:#6c8b7b;
+    font-size:12px;
+    line-height:1.6;
+    text-align:center;
+">
+
+    ${footerMessage}
+
+</p>
+
+${
+    !isCancellation
+        ? `
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="margin-top:10px;"
+>
+
+<tr>
+
+<td align="center">
+
+<a
+    href="${cancellationUrl}"
+    style="
+        display:inline-block;
+        background:#083b2a;
+        color:#ffffff;
+        text-decoration:none;
+        font-size:13px;
+        font-weight:800;
+        letter-spacing:1px;
+        padding:15px 26px;
+        border-radius:10px;
+    "
+>
+    CANCELAR MI RESERVA
+</a>
+
+</td>
+
+</tr>
+
+</table>
+`
+        : ""
+}    margin:0;
     color:#6c8b7b;
     font-size:12px;
     line-height:1.6;
@@ -988,7 +1047,16 @@ async function sendBookingConfirmationEmail(
                 classData,
 
             type:
-                "confirmed"
+                "confirmed",
+
+            classId:
+                user.classId,
+
+            entryNumber:
+                user.entryNumber,
+
+            email:
+                user.email
         });
 
     await sendResendEmail({
@@ -1567,7 +1635,10 @@ exports.reserveClass =
                         entryNumber:
                             entryNumberValue,
 
-                        bookingId
+                        bookingId,
+
+                        classId:
+                            normalizedClassId
                     },
                     classData
                 );
