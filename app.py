@@ -1770,10 +1770,7 @@ def crear_sesion():
         "success": True,
         "ok": True
     }
-@app.route("/ping")
-def ping():
-    return "OK", 200
-    
+
 @app.post("/salir")
 def logout():
     session.clear()
@@ -1935,6 +1932,9 @@ def registrar_reserva_en_sheets(user, fitness_class):
             "SHEETS - ❌ ERROR registrando reserva: %s",
             error
         )
+@app.route("/cancelar")
+def cancelar():
+    return render_template("cancelar.html")
 
 @app.route("/mis-reservas")
 @login_required
