@@ -34,18 +34,18 @@ HORARIOS
 ========================================================= */
 
 const SCHEDULES = [
-{
-id: "10:30",
-label: "10:30 — 11:10"
-},
-{
-id: "11:10",
-label: "11:10 — 11:50"
-},
-{
-id: "11:50",
-label: "11:50 — 12:30"
-}
+    {
+        id: "10:30-11:10",
+        label: "10:30-11:10"
+    },
+    {
+        id: "11:30-12:10",
+        label: "11:30-12:10"
+    },
+    {
+        id: "12:30-13:10",
+        label: "12:30-13:10"
+    }
 ];
 
 let allClasses = [];
@@ -160,7 +160,7 @@ function renderSchedules() {
         </p>
 
         <h3>
-            ¿Cuándo quieres entrenar?
+            Horarios/actividades
         </h3>
     `;
 
@@ -278,32 +278,18 @@ OBTENER CLASES DEL HORARIO
 ========================================================= */
 
 function getClassesForSchedule(schedule) {
+
     return allClasses.filter(classItem => {
-    
+
         if (!classItem.time) {
             return false;
         }
-    
-    
-        /*
-         * En Google Sheets la hora puede aparecer como:
-         *
-         * 10:30
-         * 10:30 - 11:10
-         * 10:30-11:10
-         *
-         * Cogemos solamente la hora inicial.
-         */
-    
-        const time =
-            String(classItem.time)
-                .trim()
-                .replace(/\s/g, "")
-                .split("-")[0];
-    
-    
+
+        const time = String(classItem.time)
+            .trim()
+            .replace(/\s/g, "");
+
         return time === schedule.id;
-    
     });
 }
 
