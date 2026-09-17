@@ -423,7 +423,9 @@ def send_booking_confirmation_email(user, fitness_class):
                                                 font-weight:800;
                                                 line-height:42px;
                                             ">
-                                            F
+                                            <span class="brand-logo">
+                                              <img src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png" alt="REVITALÍZATE">
+                                            </span>
                                         </td>
 
                                         <td style="
@@ -686,21 +688,9 @@ def send_registration_confirmation_email(user, promo_code):
                                        border="0">
 
                                     <tr>
-
-                                        <td align="center"
-                                            valign="middle"
-                                            style="
-                                                width:42px;
-                                                height:42px;
-                                                background:#8fdb4d;
-                                                border-radius:50%;
-                                                color:#083b2a;
-                                                font-size:22px;
-                                                font-weight:800;
-                                                line-height:42px;
-                                            ">
-                                            F
-                                        </td>
+                                        <span class="brand-logo">
+                                          <img src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png" alt="REVITALÍZATE">
+                                        </span>
 
                                         <td style="
                                             padding-left:12px;
@@ -1024,22 +1014,9 @@ def send_password_reset_email(email, reset_link):
 
                                     <tr>
 
-                                        <td
-                                            align="center"
-                                            valign="middle"
-                                            style="
-                                                width:42px;
-                                                height:42px;
-                                                background:#8fdb4d;
-                                                border-radius:50%;
-                                                color:#083b2a;
-                                                font-size:22px;
-                                                font-weight:800;
-                                                line-height:42px;
-                                            "
-                                        >
-                                            F
-                                        </td>
+                                            <span class="brand-logo">
+                                              <img src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png" alt="REVITALÍZATE">
+                                            </span>
 
                                         <td
                                             style="
