@@ -527,7 +527,6 @@ def send_booking_confirmation_email(user, fitness_class):
                                             ">
                                                 📅 {formatted_date}
                                             </p>
-
                                             <p style="
                                                 margin:0 0 6px;
                                                 color:#39705a;
@@ -535,7 +534,6 @@ def send_booking_confirmation_email(user, fitness_class):
                                             ">
                                                 🕐 {class_time}
                                             </p>
-
                                             <p style="
                                                 margin:0;
                                                 color:#39705a;
@@ -543,24 +541,9 @@ def send_booking_confirmation_email(user, fitness_class):
                                             ">
                                                 👤 {fitness_class["trainer"]}
                                             </p>
-
                                         </td>
                                     </tr>
-
                                 </table>
-
-
-                                <p style="
-                                    margin:0;
-                                    color:#6c8b7b;
-                                    font-size:12px;
-                                    line-height:1.6;
-                                    text-align:center;">
-                                    Si finalmente no puedes asistir,
-                                    recuerda cancelar tu reserva desde
-                                    tu área de miembro.
-                                </p>
-
                             </td>
                         </tr>
 
