@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Cancelar reserva · REVITALÍZATE{% endblock %}
+
+{% block content %}
+
+<section class="reservation-page">
+
+    <div class="reservation-info">
+
+        <p class="eyebrow">GESTIONA TU RESERVA</p>
+
+        <h1>
+            Cancela.<br>
+            <em>Tu plaza.</em><br>
+            Sin complicaciones.
+        </h1>
+
+        <p class="reservation-description">
+            Desde aquí puedes cancelar la reserva de la clase
+            que has seleccionado.
+        </p>
+
+    </div>
+
+
+    <div class="reservation-card">
+
+        <!-- FORMULARIO -->
+
+        <div id="cancel-form-container">
+
+            <p class="eyebrow">
+                CANCELAR RESERVA
+            </p>
+
+            <h2>
+                ¿Quieres cancelar tu plaza?
+            </h2>
+
+            <p class="reservation-intro">
+                Si cancelas esta reserva, la plaza volverá a estar
+                disponible para otra persona.
+            </p>
+
+
+            <form id="cancel-form">
+
+                <div
+                    id="cancel-message"
+                    class="cancel-message"
+                ></div>
+
+
+                <button
+                    type="submit"
+                    class="primary submit cancel-submit"
+                >
+                    <span>
+                        Cancelar reserva
+                    </span>
+
+                    <b>→</b>
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- RESERVA CANCELADA -->
+
+        <div
+            id="cancel-success"
+            class="reservation-success"
+            hidden
+        >
+
+            <div class="reservation-success-icon">
+                ✓
+            </div>
+
+            <p class="eyebrow">
+                RESERVA CANCELADA
+            </p>
+
+            <h2>
+                Reserva cancelada
+            </h2>
+
+            <p>
+                Tu reserva se ha cancelado correctamente.
+            </p>
+
+            <p>
+                La plaza vuelve a estar disponible para
+                otros usuarios.
+            </p>
+
+
+            <a
+                href="{{ url_for('index') }}#clases"
+                class="primary reservation-back"
+            >
+                Volver a las clases
+                <b>→</b>
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script
+    type="module"
+    src="{{ url_for('static', filename='cancelar.js') }}"
+></script>
+
+{% endblock %}
