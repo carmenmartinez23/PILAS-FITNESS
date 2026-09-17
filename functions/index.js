@@ -947,6 +947,7 @@ ${
 </tr>
 
 </table>
+<p>
 `
         : ""
 }    margin:0;
@@ -955,8 +956,6 @@ ${
     line-height:1.6;
     text-align:center;
 ">
-
-    ${footerMessage}
 
 </p>
 
