@@ -555,8 +555,7 @@ def send_booking_confirmation_email(user, fitness_class):
                                     color:#6c8b7b;
                                     font-size:12px;
                                     line-height:1.6;
-                                    text-align:center;
-                                ">
+                                    text-align:center;">
                                     Si finalmente no puedes asistir,
                                     recuerda cancelar tu reserva desde
                                     tu área de miembro.
