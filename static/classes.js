@@ -1,39 +1,58 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 
 import {
-getFirestore,
-collection,
-getDocs
+    getFirestore,
+    collection,
+    getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 import {
-getFunctions,
-httpsCallable
+    getFunctions,
+    httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 
 import { firebaseConfig } from "./firebase-config.js";
+
+
+/* =========================================================
+   FIREBASE
+   ========================================================= */
 
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 
 const functions = getFunctions(
-app,
-"us-central1"
+    app,
+    "us-central1"
 );
 
 const syncClassesFunction = httpsCallable(
-functions,
-"syncClassesFromSheets"
+    functions,
+    "syncClassesFromSheets"
 );
 
-const classGrid = document.getElementById("class-grid");
 
 /* =========================================================
-HORARIOS
-========================================================= */
+   ELEMENTOS
+   ========================================================= */
 
-const SCHEDULES = [
+const classGrid =
+    document.getElementById("class-grid");
+
+
+/* =========================================================
+   HORARIOS PRINCIPALES
+   =========================================================
+   
+   Estos son los horarios que quieres mostrar
+   como principales.
+
+   Cualquier otro horario que aparezca en Google Sheets
+   se mostrará automáticamente en "OTROS HORARIOS".
+   ========================================================= */
+
+const MAIN_SCHEDULES = [
     {
         id: "10:30-11:10",
         label: "10:30-11:10"
@@ -48,22 +67,32 @@ const SCHEDULES = [
     }
 ];
 
-let allClasses = [];
-let selectedSchedule = null;
 
 /* =========================================================
-CARGAR CLASES
-========================================================= */
+   VARIABLES
+   ========================================================= */
+
+let allClasses = [];
+
+let selectedSchedule = null;
+
+
+/* =========================================================
+   CARGAR CLASES
+   ========================================================= */
 
 async function loadClasses() {
 
     try {
 
-        // Google Sheets → Firestore
+        /*
+         * Google Sheets es la fuente principal.
+         * Primero sincronizamos y después leemos Firestore.
+         */
+
         await syncClassesFunction();
 
 
-        // Leer clases desde Firestore
         const snapshot = await getDocs(
             collection(db, "classes")
         );
@@ -77,7 +106,10 @@ async function loadClasses() {
             const data = doc.data();
 
 
-            // Solo mostrar clases activas
+            /*
+             * No mostramos clases desactivadas.
+             */
+
             if (data.activa === false) {
                 return;
             }
@@ -91,11 +123,18 @@ async function loadClasses() {
         });
 
 
-        // Ordenar por fecha y hora
+        /*
+         * Ordenamos primero por fecha
+         * y después por hora.
+         */
+
         allClasses.sort((a, b) => {
 
-            const dateA = `${a.date} ${a.time}`;
-            const dateB = `${b.date} ${b.time}`;
+            const dateA =
+                `${a.date || ""} ${normalizeTime(a.time)}`;
+
+            const dateB =
+                `${b.date || ""} ${normalizeTime(b.time)}`;
 
             return dateA.localeCompare(dateB);
 
@@ -113,24 +152,337 @@ async function loadClasses() {
         );
 
 
-        classGrid.innerHTML = `
-            <p>
-                No se han podido cargar las clases.
-                Inténtalo de nuevo.
-            </p>
-        `;
+        if (classGrid) {
+
+            classGrid.innerHTML = `
+                <div class="schedule-empty">
+                    <p class="eyebrow">
+                        ERROR
+                    </p>
+
+                    <h3>
+                        No se han podido cargar las clases.
+                    </h3>
+
+                    <p>
+                        Inténtalo de nuevo.
+                    </p>
+                </div>
+            `;
+
+        }
 
     }
+
 }
 
+
 /* =========================================================
-SELECTOR DE HORARIOS
-========================================================= */
+   NORMALIZAR HORARIOS
+   =========================================================
+
+   Convierte diferentes formatos a uno único.
+
+   Ejemplos:
+
+   10,30-12,00
+   10:30-12:00
+   10,30 - 12,00
+   10:30 - 12:00
+
+   Todos terminan siendo:
+
+   10:30-12:00
+   ========================================================= */
+
+function normalizeTime(value) {
+
+    if (
+        value === undefined ||
+        value === null
+    ) {
+        return "";
+    }
+
+
+    let time = String(value)
+        .trim();
+
+
+    if (!time) {
+        return "";
+    }
+
+
+    /*
+     * Comas decimales de la hora:
+     *
+     * 10,30 → 10:30
+     */
+
+    time = time.replace(
+        /(\d{1,2}),(\d{2})/g,
+        "$1:$2"
+    );
+
+
+    /*
+     * Quitamos todos los espacios.
+     */
+
+    time = time.replace(
+        /\s/g,
+        ""
+    );
+
+
+    /*
+     * Normalizamos posibles guiones.
+     */
+
+    time = time.replace(
+        /–/g,
+        "-"
+    );
+
+    time = time.replace(
+        /—/g,
+        "-"
+    );
+
+
+    return time;
+
+}
+
+
+/* =========================================================
+   OBTENER TODOS LOS HORARIOS
+   ========================================================= */
+
+function getAvailableSchedules() {
+
+    const schedules = new Map();
+
+
+    allClasses.forEach(classItem => {
+
+        const normalized =
+            normalizeTime(classItem.time);
+
+
+        /*
+         * Las clases sin horario no entran aquí.
+         */
+
+        if (!normalized) {
+            return;
+        }
+
+
+        if (!schedules.has(normalized)) {
+
+            schedules.set(
+                normalized,
+                {
+                    id: normalized,
+                    label: normalized
+                }
+            );
+
+        }
+
+    });
+
+
+    return Array.from(
+        schedules.values()
+    );
+
+}
+
+
+/* =========================================================
+   OBTENER HORARIOS PRINCIPALES
+   ========================================================= */
+
+function getMainSchedules() {
+
+    return MAIN_SCHEDULES.filter(
+        schedule => {
+
+            return allClasses.some(
+                classItem =>
+                    normalizeTime(
+                        classItem.time
+                    ) === schedule.id
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   OBTENER OTROS HORARIOS
+   ========================================================= */
+
+function getOtherSchedules() {
+
+    const mainIds =
+        MAIN_SCHEDULES.map(
+            schedule => schedule.id
+        );
+
+
+    const schedules =
+        getAvailableSchedules();
+
+
+    return schedules
+        .filter(
+            schedule =>
+                !mainIds.includes(
+                    schedule.id
+                )
+        )
+        .sort(
+            (a, b) =>
+                a.id.localeCompare(b.id)
+        );
+
+}
+
+
+/* =========================================================
+   OBTENER CLASES DE UN HORARIO
+   ========================================================= */
+
+function getClassesForSchedule(
+    schedule
+) {
+
+    return allClasses.filter(
+        classItem => {
+
+            const classTime =
+                normalizeTime(
+                    classItem.time
+                );
+
+
+            return (
+                classTime === schedule.id
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   OBTENER CLASES SIN HORARIO
+   ========================================================= */
+
+function getClassesWithoutSchedule() {
+
+    return allClasses.filter(
+        classItem => {
+
+            return !normalizeTime(
+                classItem.time
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   CREAR BOTÓN DE HORARIO
+   ========================================================= */
+
+function createScheduleButton(
+    schedule
+) {
+
+    const classesForSchedule =
+        getClassesForSchedule(
+            schedule
+        );
+
+
+    const button =
+        document.createElement("button");
+
+
+    button.type = "button";
+
+    button.className =
+        "schedule-button";
+
+
+    if (
+        selectedSchedule ===
+        schedule.id
+    ) {
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+
+    button.innerHTML = `
+        <span>
+            ${schedule.label}
+        </span>
+
+        <small>
+            ${classesForSchedule.length}
+            ${
+                classesForSchedule.length === 1
+                    ? "clase"
+                    : "clases"
+            }
+        </small>
+
+        <b>→</b>
+    `;
+
+
+    button.addEventListener(
+        "click",
+        () => {
+
+            selectedSchedule =
+                schedule.id;
+
+            renderSchedules();
+
+        }
+    );
+
+
+    return button;
+
+}
+
+
+/* =========================================================
+   RENDERIZAR HORARIOS
+   ========================================================= */
 
 function renderSchedules() {
 
     const section =
-        document.getElementById("class-schedules");
+        document.getElementById(
+            "class-schedules"
+        );
 
 
     if (!section) {
@@ -147,8 +499,13 @@ function renderSchedules() {
     section.innerHTML = "";
 
 
+    /* =====================================================
+       CABECERA
+       ===================================================== */
+
     const heading =
         document.createElement("div");
+
 
     heading.className =
         "schedule-heading";
@@ -165,52 +522,197 @@ function renderSchedules() {
     `;
 
 
-    section.appendChild(heading);
+    section.appendChild(
+        heading
+    );
 
 
-    const buttons =
-        document.createElement("div");
+    /* =====================================================
+       HORARIOS PRINCIPALES
+       ===================================================== */
 
-    buttons.className =
-        "schedule-buttons";
-
-
-    SCHEDULES.forEach(schedule => {
-
-        const classesForSchedule =
-            getClassesForSchedule(schedule);
+    const mainSchedules =
+        getMainSchedules();
 
 
-        const button =
-            document.createElement("button");
+    if (mainSchedules.length > 0) {
+
+        const mainTitle =
+            document.createElement(
+                "p"
+            );
 
 
-        button.type = "button";
+        mainTitle.className =
+            "schedule-group-title";
 
-        button.className =
-            "schedule-button";
+
+        mainTitle.textContent =
+            "HORARIOS PRINCIPALES";
+
+
+        section.appendChild(
+            mainTitle
+        );
+
+
+        const mainButtons =
+            document.createElement(
+                "div"
+            );
+
+
+        mainButtons.className =
+            "schedule-buttons";
+
+
+        mainSchedules.forEach(
+            schedule => {
+
+                mainButtons.appendChild(
+                    createScheduleButton(
+                        schedule
+                    )
+                );
+
+            }
+        );
+
+
+        section.appendChild(
+            mainButtons
+        );
+
+    }
+
+
+    /* =====================================================
+       OTROS HORARIOS
+       ===================================================== */
+
+    const otherSchedules =
+        getOtherSchedules();
+
+
+    if (otherSchedules.length > 0) {
+
+        const otherTitle =
+            document.createElement(
+                "p"
+            );
+
+
+        otherTitle.className =
+            "schedule-group-title other-schedule-title";
+
+
+        otherTitle.textContent =
+            "OTROS HORARIOS";
+
+
+        section.appendChild(
+            otherTitle
+        );
+
+
+        const otherButtons =
+            document.createElement(
+                "div"
+            );
+
+
+        otherButtons.className =
+            "schedule-buttons";
+
+
+        otherSchedules.forEach(
+            schedule => {
+
+                otherButtons.appendChild(
+                    createScheduleButton(
+                        schedule
+                    )
+                );
+
+            }
+        );
+
+
+        section.appendChild(
+            otherButtons
+        );
+
+    }
+
+
+    /* =====================================================
+       CLASES SIN HORARIO
+       ===================================================== */
+
+    const classesWithoutSchedule =
+        getClassesWithoutSchedule();
+
+
+    if (
+        classesWithoutSchedule.length > 0
+    ) {
+
+        const noScheduleTitle =
+            document.createElement(
+                "p"
+            );
+
+
+        noScheduleTitle.className =
+            "schedule-group-title no-schedule-title";
+
+
+        noScheduleTitle.textContent =
+            "INFORMACIÓN / ACTIVIDADES SIN HORARIO";
+
+
+        section.appendChild(
+            noScheduleTitle
+        );
+
+
+        const noScheduleButton =
+            document.createElement(
+                "button"
+            );
+
+
+        noScheduleButton.type =
+            "button";
+
+
+        noScheduleButton.className =
+            "schedule-button no-schedule-button";
 
 
         if (
-            selectedSchedule === schedule.id
+            selectedSchedule ===
+            "__NO_SCHEDULE__"
         ) {
 
-            button.classList.add("selected");
+            noScheduleButton.classList.add(
+                "selected"
+            );
 
         }
 
 
-        button.innerHTML = `
+        noScheduleButton.innerHTML = `
             <span>
-                ${schedule.label}
+                Actividades sin horario
             </span>
 
             <small>
-                ${classesForSchedule.length}
+                ${classesWithoutSchedule.length}
                 ${
-                    classesForSchedule.length === 1
-                        ? "clase"
-                        : "clases"
+                    classesWithoutSchedule.length === 1
+                        ? "actividad"
+                        : "actividades"
                 }
             </small>
 
@@ -218,12 +720,12 @@ function renderSchedules() {
         `;
 
 
-        button.addEventListener(
+        noScheduleButton.addEventListener(
             "click",
             () => {
 
                 selectedSchedule =
-                    schedule.id;
+                    "__NO_SCHEDULE__";
 
                 renderSchedules();
 
@@ -231,26 +733,44 @@ function renderSchedules() {
         );
 
 
-        buttons.appendChild(button);
-
-    });
-
-
-    section.appendChild(buttons);
+        const noScheduleButtons =
+            document.createElement(
+                "div"
+            );
 
 
-    /* -----------------------------------------------------
-    Todavía no se ha elegido horario
-    ----------------------------------------------------- */
+        noScheduleButtons.className =
+            "schedule-buttons";
 
-    if (selectedSchedule === null) {
+
+        noScheduleButtons.appendChild(
+            noScheduleButton
+        );
+
+
+        section.appendChild(
+            noScheduleButtons
+        );
+
+    }
+
+
+    /* =====================================================
+       NADA SELECCIONADO
+       ===================================================== */
+
+    if (
+        selectedSchedule === null
+    ) {
 
         classGrid.innerHTML = `
             <div class="schedule-placeholder">
+
                 <p>
                     Selecciona un horario para ver
                     las clases disponibles.
                 </p>
+
             </div>
         `;
 
@@ -259,9 +779,27 @@ function renderSchedules() {
     }
 
 
-    /* -----------------------------------------------------
-    Mostrar clases del horario seleccionado
-    ----------------------------------------------------- */
+    /* =====================================================
+       CLASES SIN HORARIO SELECCIONADAS
+       ===================================================== */
+
+    if (
+        selectedSchedule ===
+        "__NO_SCHEDULE__"
+    ) {
+
+        renderClasses(
+            classesWithoutSchedule
+        );
+
+        return;
+
+    }
+
+
+    /* =====================================================
+       CLASES DEL HORARIO SELECCIONADO
+       ===================================================== */
 
     const selectedClasses =
         getClassesForSchedule({
@@ -269,65 +807,83 @@ function renderSchedules() {
         });
 
 
-    renderClasses(selectedClasses);
+    renderClasses(
+        selectedClasses
+    );
 
 }
 
-/* =========================================================
-OBTENER CLASES DEL HORARIO
-========================================================= */
-
-function getClassesForSchedule(schedule) {
-
-    return allClasses.filter(classItem => {
-
-        if (!classItem.time) {
-            return false;
-        }
-
-        const time = String(classItem.time)
-            .trim()
-            .replace(/\s/g, "");
-
-        return time === schedule.id;
-    });
-}
 
 /* =========================================================
-MOSTRAR CLASES
-========================================================= */
+   RENDERIZAR CLASES
+   ========================================================= */
 
-function renderClasses(classes) {
+function renderClasses(
+    classes
+) {
+
     classGrid.innerHTML = "";
 
 
     const selected =
-        SCHEDULES.find(
-            schedule =>
-                schedule.id === selectedSchedule
+        getAvailableSchedules()
+            .find(
+                schedule =>
+                    schedule.id ===
+                    selectedSchedule
+            );
+
+
+    const isNoSchedule =
+        selectedSchedule ===
+        "__NO_SCHEDULE__";
+
+
+    /* =====================================================
+       CABECERA DEL HORARIO
+       ===================================================== */
+
+    const heading =
+        document.createElement(
+            "div"
         );
 
 
-    /* -----------------------------------------------------
-    Cabecera del horario
-    ----------------------------------------------------- */
-
-    const heading =
-        document.createElement("div");
-
     heading.className =
         "selected-schedule-heading";
+
+
+    let selectedLabel = "";
+
+
+    if (isNoSchedule) {
+
+        selectedLabel =
+            "Actividades sin horario";
+
+    } else {
+
+        selectedLabel =
+            selected
+                ? selected.label
+                : selectedSchedule;
+
+    }
 
 
     heading.innerHTML = `
         <div>
 
             <p class="eyebrow">
-                HORARIO SELECCIONADO
+                ${
+                    isNoSchedule
+                        ? "ACTIVIDADES"
+                        : "HORARIO SELECCIONADO"
+                }
             </p>
 
             <h2>
-                ${selected ? selected.label : ""}
+                ${selectedLabel || ""}
             </h2>
 
         </div>
@@ -342,31 +898,47 @@ function renderClasses(classes) {
     `;
 
 
-    classGrid.appendChild(heading);
+    classGrid.appendChild(
+        heading
+    );
 
 
-    document
-        .getElementById("change-schedule")
-        .addEventListener(
+    const changeButton =
+        document.getElementById(
+            "change-schedule"
+        );
+
+
+    if (changeButton) {
+
+        changeButton.addEventListener(
             "click",
             () => {
 
-                selectedSchedule = null;
+                selectedSchedule =
+                    null;
 
                 renderSchedules();
 
             }
         );
 
+    }
 
-    /* -----------------------------------------------------
-    No hay clases
-    ----------------------------------------------------- */
 
-    if (classes.length === 0) {
+    /* =====================================================
+       NO HAY CLASES
+       ===================================================== */
+
+    if (
+        classes.length === 0
+    ) {
 
         const empty =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         empty.className =
             "schedule-empty";
@@ -387,154 +959,311 @@ function renderClasses(classes) {
         `;
 
 
-        classGrid.appendChild(empty);
+        classGrid.appendChild(
+            empty
+        );
+
 
         return;
+
     }
 
 
-    /* -----------------------------------------------------
-    Tarjetas
-    ----------------------------------------------------- */
+    /* =====================================================
+       CONTENEDOR DE TARJETAS
+       ===================================================== */
 
     const cards =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     cards.className =
         "class-grid-inner";
 
 
-    classes.forEach(classItem => {
+    /* =====================================================
+       TARJETAS
+       ===================================================== */
 
-        const placesLeft =
-            Number(classItem.capacity || 0) -
-            Number(classItem.bookedCount || 0);
+    classes.forEach(
+        classItem => {
 
-
-        const isFull =
-            placesLeft <= 0;
-
-
-        const card =
-            document.createElement("article");
-
-
-        card.className =
-            "class-card";
+            const placesLeft =
+                Number(
+                    classItem.capacity || 0
+                ) -
+                Number(
+                    classItem.bookedCount || 0
+                );
 
 
-        card.innerHTML = `
-            <img
-                src="${classItem.imageUrl || ""}"
-                alt="${classItem.title || "Clase"}"
-            >
+            const isFull =
+                placesLeft <= 0;
 
-            <div class="card-body">
 
-                <div class="card-top">
+            const card =
+                document.createElement(
+                    "article"
+                );
 
-                    <span>
-                        ${classItem.duration || ""} MIN
-                    </span>
 
-                    <span
-                        class="availability ${isFull ? "full" : ""}"
-                    >
+            card.className =
+                "class-card";
+
+
+            /*
+             * Normalizamos la hora solamente
+             * para mostrarla correctamente.
+             */
+
+            const displayTime =
+                normalizeTime(
+                    classItem.time
+                );
+
+
+            card.innerHTML = `
+                <img
+                    src="${classItem.imageUrl || ""}"
+                    alt="${classItem.title || "Clase"}"
+                >
+
+                <div class="card-body">
+
+                    <div class="card-top">
+
+                        <span>
+                            ${
+                                classItem.duration
+                                    ? `${classItem.duration} MIN`
+                                    : ""
+                            }
+                        </span>
+
+                        <span
+                            class="availability ${
+                                isFull
+                                    ? "full"
+                                    : ""
+                            }"
+                        >
+                            ${
+                                isFull
+                                    ? "Clase completa"
+                                    : `${placesLeft} plazas`
+                            }
+                        </span>
+
+                    </div>
+
+
+                    <h3>
+                        ${classItem.title || ""}
+                    </h3>
+
+
+                    <p>
                         ${
-                            isFull
-                                ? "Clase completa"
-                                : `${placesLeft} plazas`
+                            classItem.trainer || ""
                         }
-                    </span>
+
+                        ${
+                            classItem.trainer &&
+                            classItem.date
+                                ? " · "
+                                : ""
+                        }
+
+                        ${
+                            classItem.date
+                                ? formatDate(
+                                    classItem.date
+                                )
+                                : ""
+                        }
+
+                        ${
+                            displayTime
+                                ? " · "
+                                : ""
+                        }
+
+                        ${
+                            displayTime
+                                ? displayTime
+                                : ""
+                        }
+                    </p>
+
+
+                    ${
+                        classItem.description
+                            ? `
+                                <p class="description">
+                                    ${classItem.description}
+                                </p>
+                            `
+                            : ""
+                    }
+
+
+                    ${
+                        isFull
+                            ? `
+                                <button
+                                    class="reserve"
+                                    disabled
+                                >
+                                    Clase completa
+                                </button>
+                            `
+                            : `
+                                <a
+                                    class="reserve"
+                                    href="/reservar/${encodeURIComponent(
+                                        classItem.id
+                                    )}"
+                                >
+                                    Reservar plaza
+                                    <b>→</b>
+                                </a>
+                            `
+                    }
 
                 </div>
+            `;
 
 
-                <h3>
-                    ${classItem.title || ""}
-                </h3>
+            cards.appendChild(
+                card
+            );
+
+        }
+    );
 
 
-                <p>
-                    ${classItem.trainer || ""}
-                    ·
-                    ${formatDate(classItem.date)}
-                    ·
-                    ${classItem.time || ""}
-                </p>
-
-
-                <p class="description">
-                    ${classItem.description || ""}
-                </p>
-
-
-                ${
-                    isFull
-                        ? `
-                            <button
-                                class="reserve"
-                                disabled
-                            >
-                                Clase completa
-                            </button>
-                        `
-                        : `
-                            <a
-                                class="reserve"
-                                href="/reservar/${encodeURIComponent(classItem.id)}"
-                            >
-                                Reservar plaza <b>→</b>
-                            </a>
-                        `
-                }
-
-            </div>
-        `;
-
-
-        cards.appendChild(card);
-
-    });
-
-
-    classGrid.appendChild(cards);
+    classGrid.appendChild(
+        cards
+    );
 
 }
 
+
 /* =========================================================
-FORMATEAR FECHA
-========================================================= */
-function formatDate(value) {
-    if (!value) return "Fecha no disponible";
+   FORMATEAR FECHA
+   ========================================================= */
 
-    const text = String(value).trim();
+function formatDate(
+    value
+) {
 
-    let day, month, year;
-
-    // YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-        [year, month, day] = text.split("-");
+    if (!value) {
+        return "Fecha no disponible";
     }
 
-    // DD/MM/YYYY
-    else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text)) {
-        [day, month, year] = text.split("/");
+
+    const text =
+        String(value).trim();
+
+
+    let day;
+    let month;
+    let year;
+
+
+    /*
+     * Formato:
+     *
+     * 2026-10-03
+     */
+
+    if (
+        /^\d{4}-\d{2}-\d{2}$/.test(
+            text
+        )
+    ) {
+
+        [
+            year,
+            month,
+            day
+        ] = text.split("-");
+
     }
+
+
+    /*
+     * Formato:
+     *
+     * 03/10/2026
+     */
+
+    else if (
+        /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
+            text
+        )
+    ) {
+
+        [
+            day,
+            month,
+            year
+        ] = text.split("/");
+
+    }
+
+
+    /*
+     * Cualquier otro formato.
+     */
 
     else {
-        const date = new Date(text);
 
-        if (Number.isNaN(date.getTime())) {
+        const date =
+            new Date(text);
+
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+
             return "Fecha no disponible";
+
         }
 
-        day = String(date.getDate()).padStart(2, "0");
-        month = String(date.getMonth() + 1).padStart(2, "0");
-        year = String(date.getFullYear());
+
+        day =
+            String(
+                date.getDate()
+            ).padStart(
+                2,
+                "0"
+            );
+
+
+        month =
+            String(
+                date.getMonth() + 1
+            ).padStart(
+                2,
+                "0"
+            );
+
+
+        year =
+            String(
+                date.getFullYear()
+            );
+
     }
 
+
     const months = [
+
         "enero",
         "febrero",
         "marzo",
@@ -547,13 +1276,27 @@ function formatDate(value) {
         "octubre",
         "noviembre",
         "diciembre"
+
     ];
 
-    return `${day} de ${months[Number(month) - 1]} de ${year}`;
+
+    const monthIndex =
+        Number(month) - 1;
+
+
+    return `
+        ${day}
+        de
+        ${months[monthIndex]}
+        de
+        ${year}
+    `;
+
 }
 
+
 /* =========================================================
-INICIAR
-========================================================= */
+   INICIAR
+   ========================================================= */
 
 loadClasses();
