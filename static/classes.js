@@ -990,16 +990,22 @@ function renderClasses(
     classes.forEach(
         classItem => {
 
-            const placesLeft =
-                Number(
-                    classItem.capacity || 0
-                ) -
-                Number(
-                    classItem.bookedCount || 0
-                );
+            const hasCapacity =
+                classItem.capacity !== null &&
+                classItem.capacity !== undefined &&
+                String(classItem.capacity).trim() !== "" &&
+                Number.isFinite(
+                    Number(classItem.capacity)
+                ) &&
+                Number(classItem.capacity) > 0;
 
+            const placesLeft = hasCapacity
+                ? Number(classItem.capacity) -
+                Number(classItem.bookedCount || 0)
+                : null;
 
             const isFull =
+                hasCapacity &&
                 placesLeft <= 0;
 
 
@@ -1044,15 +1050,15 @@ function renderClasses(
 
                         <span
                             class="availability ${
-                                isFull
-                                    ? "full"
-                                    : ""
+                                isFull ? "full" : ""
                             }"
                         >
                             ${
                                 isFull
                                     ? "Clase completa"
-                                    : `${placesLeft} plazas`
+                                    : hasCapacity
+                                        ? `${placesLeft} plazas`
+                                        : "Plazas disponibles"
                             }
                         </span>
 
