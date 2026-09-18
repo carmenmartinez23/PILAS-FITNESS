@@ -1006,29 +1006,128 @@ function createClassCard(classItem) {
     // PLAZAS
     // ======================================
 
-    const capacity =
-        document.createElement("div");
-
-    capacity.className =
-        "availability";
-
-
     const numericCapacity =
         Number(classItem.capacity);
-
 
     const hasLimitedCapacity =
         Number.isFinite(numericCapacity) &&
         numericCapacity > 0;
 
-
     const bookedCount =
-        Number(
-            classItem.bookedCount || 0
-        );
-
+        Number(classItem.bookedCount || 0);
 
     let isFull = false;
+    let placesLeft = null;
+
+
+    // ======================================
+    // MOSTRAR PLAZAS SOLO SI EXISTE CAPACIDAD
+    // ======================================
+
+    if (hasLimitedCapacity) {
+
+        placesLeft =
+            Math.max(
+                numericCapacity - bookedCount,
+                0
+            );
+
+        const capacity =
+            document.createElement("div");
+
+        capacity.className =
+            "availability";
+
+        if (placesLeft <= 0) {
+
+            isFull = true;
+
+            capacity.textContent =
+                "Clase completa";
+
+            capacity.classList.add(
+                "full"
+            );
+
+        } else {
+
+            capacity.textContent =
+                `${placesLeft} ${
+                    placesLeft === 1
+                        ? "plaza disponible"
+                        : "plazas disponibles"
+                }`;
+        }
+
+        body.appendChild(
+            capacity
+        );
+    }
+
+
+    // ======================================
+    // BOTÓN RESERVAR
+    // ======================================
+
+    if (hasLimitedCapacity) {
+
+        const actions =
+            document.createElement("div");
+
+        actions.className =
+            "card-actions";
+
+
+        if (isFull) {
+
+            const button =
+                document.createElement("button");
+
+            button.type =
+                "button";
+
+            button.className =
+                "reserve";
+
+            button.disabled =
+                true;
+
+            button.textContent =
+                "Clase completa";
+
+            actions.appendChild(
+                button
+            );
+
+
+        } else {
+
+            const reserveLink =
+                document.createElement("a");
+
+            reserveLink.className =
+                "reserve";
+
+            reserveLink.href =
+                `/reservar/${encodeURIComponent(
+                    classItem.id
+                )}`;
+
+            reserveLink.innerHTML = `
+                Reservar plaza
+                <b>→</b>
+            `;
+
+            actions.appendChild(
+                reserveLink
+            );
+        }
+
+
+        body.appendChild(
+            actions
+        );
+    }
 
 
     // ======================================
