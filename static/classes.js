@@ -226,15 +226,9 @@ async function loadClasses() {
         // LEER FIRESTORE
         // --------------------------------------
 
-        const classesQuery =
-            query(
-                collection(db, "classes"),
-                orderBy("orden", "asc")
-            );
+        const snapshot = await getDocs(collection(db, "classes"));
 
-
-        const snapshot =
-            await getDocs(classesQuery);
+        console.log("Clases encontradas en Firestore:", snapshot.size);
 
 
         const classes = [];
