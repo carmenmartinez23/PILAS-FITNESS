@@ -1328,3 +1328,307 @@ gap: 10px;
         padding: 2px 4px;
     }
 }
+
+/* ======================================================
+   RESERVA - DISEÑO COMPACTO
+   ====================================================== */
+
+.reservation-page {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(420px, .65fr);
+    gap: 45px;
+    align-items: start;
+}
+
+/* ------------------------------------------
+   INFORMACIÓN DE LA ACTIVIDAD
+   ------------------------------------------ */
+
+.reservation-info {
+    min-width: 0;
+}
+
+.reservation-info > h1 {
+    font-size: clamp(2.8rem, 5vw, 5rem);
+    line-height: .95;
+    letter-spacing: -.06em;
+    margin: 15px 0 28px;
+}
+
+.reservation-class {
+    display: flex;
+    width: 100%;
+    background: #fff;
+    border: 1px solid var(--green-soft);
+    overflow: hidden;
+    min-height: 145px;
+}
+
+.reservation-image {
+    width: 175px;
+    min-width: 175px;
+    height: 145px;
+    overflow: hidden;
+}
+
+.reservation-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.reservation-class-content {
+    flex: 1;
+    min-width: 0;
+    padding: 15px 17px;
+}
+
+.reservation-class-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--green-dark);
+    font: 700 .63rem 'DM Mono', monospace;
+    text-transform: uppercase;
+}
+
+.reservation-class h2 {
+    font-size: 1.25rem;
+    line-height: 1.1;
+    letter-spacing: -.04em;
+    margin: 8px 0 4px;
+}
+
+.reservation-trainer {
+    color: var(--muted);
+    font-size: .72rem;
+    margin: 0 0 8px;
+}
+
+.reservation-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.reservation-meta span {
+    background: var(--green-soft);
+    color: var(--green-dark);
+    padding: 4px 7px;
+    font: 700 .58rem 'DM Mono', monospace;
+}
+
+.reservation-description {
+    color: var(--muted);
+    font-size: .67rem;
+    line-height: 1.4;
+    margin: 6px 0 0;
+}
+
+
+/* ------------------------------------------
+   FORMULARIO
+   ------------------------------------------ */
+
+.reservation-card {
+    background: #fff;
+    border: 1px solid var(--green-soft);
+    padding: 30px;
+}
+
+.reservation-card h2 {
+    font-size: 2rem;
+    line-height: 1;
+    letter-spacing: -.05em;
+    margin: 8px 0 10px;
+}
+
+.reservation-intro {
+    color: var(--muted);
+    font-size: .76rem;
+    line-height: 1.5;
+    margin: 0 0 22px;
+}
+
+#reservation-form {
+    display: grid;
+    gap: 14px;
+}
+
+#reservation-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--ink);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+#reservation-form input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #dcece2;
+    background: #f9fcfa;
+    color: var(--ink);
+    padding: 11px 12px;
+    font: 500 .78rem Manrope, sans-serif;
+    outline: none;
+    transition: .2s ease;
+}
+
+#reservation-form input:focus {
+    border-color: var(--green);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(143, 219, 77, .12);
+}
+
+#reservation-form small {
+    color: var(--muted);
+    font-size: .61rem;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+.reservation-submit {
+    margin-top: 4px;
+}
+
+
+/* ------------------------------------------
+   RESERVA CONFIRMADA
+   ------------------------------------------ */
+
+.reservation-success {
+    text-align: center;
+}
+
+.reservation-success-icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 18px;
+    background: var(--green);
+    color: var(--ink);
+    border-radius: 50%;
+    font-size: 1.3rem;
+    font-weight: 900;
+}
+
+.reservation-success h2 {
+    margin-bottom: 15px;
+}
+
+.reservation-success p {
+    color: var(--muted);
+    font-size: .78rem;
+    line-height: 1.6;
+}
+
+.reservation-ticket {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin: 22px 0;
+    padding: 15px 18px;
+    background: var(--green-soft);
+    text-align: left;
+}
+
+.reservation-ticket span {
+    color: var(--green-dark);
+    font: 700 .62rem 'DM Mono', monospace;
+}
+
+.reservation-ticket strong {
+    color: var(--ink);
+    font-size: 1.3rem;
+}
+
+.reservation-back {
+    display: inline-flex;
+    margin-top: 10px;
+}
+
+
+/* ------------------------------------------
+   MÓVIL
+   ------------------------------------------ */
+
+@media (max-width: 850px) {
+
+    .reservation-page {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+
+    .reservation-info > h1 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+
+    .reservation-card {
+        padding: 22px;
+    }
+}
+
+
+@media (max-width: 520px) {
+
+    .reservation-info > h1 {
+        font-size: 2.55rem;
+    }
+
+    .reservation-class {
+        min-height: 105px;
+    }
+
+    .reservation-image {
+        width: 105px;
+        min-width: 105px;
+        height: 105px;
+    }
+
+    .reservation-class-content {
+        padding: 10px 11px;
+    }
+
+    .reservation-class-top {
+        font-size: .52rem;
+    }
+
+    .reservation-class h2 {
+        font-size: .92rem;
+        margin: 5px 0 3px;
+    }
+
+    .reservation-trainer {
+        font-size: .62rem;
+        margin-bottom: 5px;
+    }
+
+    .reservation-meta {
+        gap: 4px;
+        margin-bottom: 3px;
+    }
+
+    .reservation-meta span {
+        padding: 3px 5px;
+        font-size: .51rem;
+    }
+
+    .reservation-description {
+        font-size: .58rem;
+        margin-top: 3px;
+    }
+
+    .reservation-card {
+        padding: 18px;
+    }
+
+    .reservation-card h2 {
+        font-size: 1.65rem;
+    }
+}
