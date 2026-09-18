@@ -245,15 +245,13 @@ async function loadClasses() {
         // LEER FIRESTORE
         // --------------------------------------
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "classes"
-                ),
+        const classesQuery = query(
+            collection(db, "classes"),
             orderBy("orden", "asc")
-            );
+        );
 
+        const snapshot =
+            await getDocs(classesQuery);
 
         const classes = [];
 
@@ -478,56 +476,60 @@ async function loadClasses() {
 
 }
 
-
 // ==========================================
 // OBTENER HORARIOS
 // ==========================================
 //
-// Los horarios aparecen en el orden de
-// la primera aparición en Google Sheets.
+// ORDEN MANUAL
+//
+// Las clases se agrupan por su hora de inicio.
+//
+// 09:45-10:15  → 09:45
+// 10:30-11:10  → 10:30
+// 10:30-12:00  → 10:30
+// 11:30-12:10  → 11:30
+// 12:30-13:10  → 12:30
 // ==========================================
 
 function getSchedules(classes) {
 
-    const schedules = [];
+    const manualOrder = [
+        "09:45",
+        "10:30",
+        "11:30",
+        "12:30"
+    ];
 
+    const availableSchedules = [];
 
-    classes.forEach(
-        (classItem) => {
+    classes.forEach((classItem) => {
 
-            if (!classItem.time) {
-                return;
-            }
-
-
-            const normalizedTime =
-                normalizeTime(
-                    classItem.time
-                );
-
-
-            if (!normalizedTime) {
-                return;
-            }
-
-
-            if (
-                !schedules.includes(
-                    normalizedTime
-                )
-            ) {
-
-                schedules.push(
-                    normalizedTime
-                );
-
-            }
-
+        if (!classItem.time) {
+            return;
         }
+
+        const normalizedTime =
+            normalizeTime(classItem.time);
+
+        if (!normalizedTime) {
+            return;
+        }
+
+        const startTime =
+            normalizedTime.split("-")[0];
+
+        if (
+            startTime &&
+            !availableSchedules.includes(startTime)
+        ) {
+            availableSchedules.push(startTime);
+        }
+    });
+
+    return manualOrder.filter(
+        (schedule) =>
+            availableSchedules.includes(schedule)
     );
-
-
-    return schedules;
 }
 
 
@@ -671,17 +673,20 @@ function renderSchedules(classes) {
             // ----------------------------------
 
             const scheduleClasses =
-                classes.filter(
-                    (classItem) => {
+                classes.filter((classItem) => {
 
-                        return (
-                            normalizeTime(
-                                classItem.time
-                            ) === schedule
-                        );
-
+                    if (!classItem.time) {
+                        return false;
                     }
-                );
+
+                    const normalizedTime =
+                        normalizeTime(classItem.time);
+
+                    const startTime =
+                        normalizedTime.split("-")[0];
+
+                    return startTime === schedule;
+                });
 
 
             renderClassesIntoContainer(
