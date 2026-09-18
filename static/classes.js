@@ -710,12 +710,6 @@ function createTypeSection(
     title.className =
         "class-type-title";
 
-    title.innerHTML = `
-        <p class="eyebrow">
-            ${type}
-        </p>
-    `;
-
     wrapper.appendChild(title);
 
     const cards =
