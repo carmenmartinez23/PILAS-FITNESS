@@ -8,7 +8,6 @@ import {
 
 import { firebaseConfig } from "./firebase-config.js";
 
-
 /* =========================================================
    FIREBASE
    ========================================================= */
@@ -17,14 +16,12 @@ const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 
-
 /* =========================================================
    ELEMENTOS
    ========================================================= */
 
-const classGrid =
-    document.getElementById("class-grid");
-
+const schedulesSection =
+    document.getElementById("class-schedules");
 
 /* =========================================================
    HORARIOS PRINCIPALES
@@ -45,15 +42,12 @@ const MAIN_SCHEDULES = [
     }
 ];
 
-
 /* =========================================================
    VARIABLES
    ========================================================= */
 
 let allClasses = [];
-
 let selectedSchedule = null;
-
 
 /* =========================================================
    CARGAR CLASES
@@ -64,24 +58,22 @@ async function loadClasses() {
     try {
 
         /*
-         * Las clases se leen directamente desde Firestore.
+         * Firestore contiene las clases ya sincronizadas
+         * automáticamente desde Google Sheets.
          *
-         * La sincronización Google Sheets → Firestore
-         * se realiza automáticamente en segundo plano.
+         * No hacemos una sincronización manual aquí para
+         * evitar ralentizar la página.
          */
 
         const snapshot = await getDocs(
             collection(db, "classes")
         );
 
-
         allClasses = [];
-
 
         snapshot.forEach(doc => {
 
             const data = doc.data();
-
 
             /*
              * No mostramos clases desactivadas.
@@ -91,18 +83,14 @@ async function loadClasses() {
                 return;
             }
 
-
             allClasses.push({
                 id: doc.id,
                 ...data
             });
-
         });
 
-
         /*
-         * Ordenamos primero por fecha
-         * y después por hora.
+         * Ordenamos primero por fecha y después por hora.
          */
 
         allClasses.sort((a, b) => {
@@ -114,12 +102,9 @@ async function loadClasses() {
                 `${b.date || ""} ${normalizeTime(b.time)}`;
 
             return dateA.localeCompare(dateB);
-
         });
 
-
         renderSchedules();
-
 
     } catch (error) {
 
@@ -128,16 +113,9 @@ async function loadClasses() {
             error
         );
 
+        if (schedulesSection) {
 
-        const section =
-            document.getElementById(
-                "class-schedules"
-            );
-
-
-        if (section) {
-
-            section.innerHTML = `
+            schedulesSection.innerHTML = `
                 <div class="schedule-empty">
 
                     <p class="eyebrow">
@@ -154,28 +132,12 @@ async function loadClasses() {
 
                 </div>
             `;
-
         }
-
     }
-
 }
-
 
 /* =========================================================
    NORMALIZAR HORARIOS
-   =========================================================
-
-   Convierte:
-
-   10,30-12,00
-   10:30-12:00
-   10,30 - 12,00
-   10:30 - 12:00
-
-   en:
-
-   10:30-12:00
    ========================================================= */
 
 function normalizeTime(value) {
@@ -187,19 +149,13 @@ function normalizeTime(value) {
         return "";
     }
 
-
-    let time =
-        String(value).trim();
-
+    let time = String(value).trim();
 
     if (!time) {
         return "";
     }
 
-
     /*
-     * Convierte comas en dos puntos.
-     *
      * 10,30 → 10:30
      */
 
@@ -207,7 +163,6 @@ function normalizeTime(value) {
         /(\d{1,2}),(\d{2})/g,
         "$1:$2"
     );
-
 
     /*
      * Quitamos espacios.
@@ -218,26 +173,15 @@ function normalizeTime(value) {
         ""
     );
 
-
     /*
      * Normalizamos guiones.
      */
 
-    time = time.replace(
-        /–/g,
-        "-"
-    );
-
-    time = time.replace(
-        /—/g,
-        "-"
-    );
-
+    time = time.replace(/–/g, "-");
+    time = time.replace(/—/g, "-");
 
     return time;
-
 }
-
 
 /* =========================================================
    OBTENER TODOS LOS HORARIOS
@@ -245,54 +189,37 @@ function normalizeTime(value) {
 
 function getAvailableSchedules() {
 
-    const schedules =
-        new Map();
+    const schedules = new Map();
 
+    allClasses.forEach(classItem => {
 
-    allClasses.forEach(
-        classItem => {
+        const normalized =
+            normalizeTime(classItem.time);
 
-            const normalized =
-                normalizeTime(
-                    classItem.time
-                );
+        /*
+         * Las clases sin horario no entran aquí.
+         */
 
-
-            /*
-             * Las clases sin horario no entran aquí.
-             */
-
-            if (!normalized) {
-                return;
-            }
-
-
-            if (
-                !schedules.has(
-                    normalized
-                )
-            ) {
-
-                schedules.set(
-                    normalized,
-                    {
-                        id: normalized,
-                        label: normalized
-                    }
-                );
-
-            }
-
+        if (!normalized) {
+            return;
         }
-    );
 
+        if (!schedules.has(normalized)) {
+
+            schedules.set(
+                normalized,
+                {
+                    id: normalized,
+                    label: normalized
+                }
+            );
+        }
+    });
 
     return Array.from(
         schedules.values()
     );
-
 }
-
 
 /* =========================================================
    OBTENER HORARIOS PRINCIPALES
@@ -309,12 +236,9 @@ function getMainSchedules() {
                         classItem.time
                     ) === schedule.id
             );
-
         }
     );
-
 }
-
 
 /* =========================================================
    OBTENER OTROS HORARIOS
@@ -327,10 +251,8 @@ function getOtherSchedules() {
             schedule => schedule.id
         );
 
-
     const schedules =
         getAvailableSchedules();
-
 
     return schedules
         .filter(
@@ -341,21 +263,15 @@ function getOtherSchedules() {
         )
         .sort(
             (a, b) =>
-                a.id.localeCompare(
-                    b.id
-                )
+                a.id.localeCompare(b.id)
         );
-
 }
-
 
 /* =========================================================
    OBTENER CLASES DE UN HORARIO
    ========================================================= */
 
-function getClassesForSchedule(
-    schedule
-) {
+function getClassesForSchedule(schedule) {
 
     return allClasses.filter(
         classItem => {
@@ -365,17 +281,12 @@ function getClassesForSchedule(
                     classItem.time
                 );
 
-
             return (
-                classTime ===
-                schedule.id
+                classTime === schedule.id
             );
-
         }
     );
-
 }
-
 
 /* =========================================================
    OBTENER CLASES SIN HORARIO
@@ -389,210 +300,65 @@ function getClassesWithoutSchedule() {
             return !normalizeTime(
                 classItem.time
             );
-
         }
     );
-
 }
-
 
 /* =========================================================
-   CLASIFICAR CENTROS
-   =========================================================
-
-   clinical = centros clínicos / salud
-   sports   = centros deportivos
-   other    = otras actividades
+   NORMALIZAR TIPO
    ========================================================= */
 
-function getClassCategory(
-    classItem
-) {
+function normalizeType(value) {
 
-    const trainer =
-        String(
-            classItem.trainer || ""
-        )
+    const type =
+        String(value || "")
             .trim()
-            .toLowerCase();
+            .toUpperCase();
 
-
-    const title =
-        String(
-            classItem.title || ""
-        )
-            .trim()
-            .toLowerCase();
-
-
-    /*
-     * CENTROS CLÍNICOS Y DE SALUD
-     */
-
-    const clinicalKeywords = [
-
-        "gaba",
-        "podología",
-        "podologia",
-        "osteópata",
-        "osteopata",
-        "cardiología",
-        "cardiologia",
-        "clínica cardiología",
-        "clinica cardiologia",
-        "nutrición",
-        "nutricion",
-        "salud integrativa",
-        "salud funcional",
-        "acupuntura",
-        "fisioterapia",
-        "fisioterapeuta",
-        "clínica",
-        "clinica"
-
-    ];
-
-
-    if (
-        clinicalKeywords.some(
-            keyword =>
-                trainer.includes(keyword) ||
-                title.includes(keyword)
-        )
-    ) {
-
-        return "clinical";
-
+    if (type === "CLÍNICO" || type === "CLINICO") {
+        return "CLÍNICO";
     }
 
-
-    /*
-     * CENTROS DEPORTIVOS
-     */
-
-    const sportsKeywords = [
-
-        "myos",
-        "coach",
-        "creative zone",
-        "entrenamiento",
-        "yoga",
-        "fuerza",
-        "deportivo",
-        "fitness",
-        "sport",
-        "performance"
-
-    ];
-
-
-    if (
-        sportsKeywords.some(
-            keyword =>
-                trainer.includes(keyword) ||
-                title.includes(keyword)
-        )
-    ) {
-
-        return "sports";
-
+    if (type === "DEPORTIVO") {
+        return "DEPORTIVO";
     }
 
-
-    /*
-     * OTRAS ACTIVIDADES
-     */
-
-    return "other";
-
+    return "OTROS";
 }
-
-
-/* =========================================================
-   NOMBRE DE LA CATEGORÍA
-   ========================================================= */
-
-function getCategoryLabel(
-    category
-) {
-
-    switch (category) {
-
-        case "clinical":
-
-            return "CENTROS CLÍNICOS Y SALUD";
-
-
-        case "sports":
-
-            return "CENTROS DEPORTIVOS";
-
-
-        default:
-
-            return "OTRAS ACTIVIDADES";
-
-    }
-
-}
-
 
 /* =========================================================
    CREAR BOTÓN DE HORARIO
    ========================================================= */
 
-function createScheduleButton(
-    schedule
-) {
+function createScheduleButton(schedule) {
 
     const classesForSchedule =
-        getClassesForSchedule(
-            schedule
-        );
-
-
-    /*
-     * Contenedor completo del horario.
-     */
+        getClassesForSchedule(schedule);
 
     const wrapper =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     wrapper.className =
         "schedule-item";
-
 
     /* =====================================================
        BOTÓN
        ===================================================== */
 
     const button =
-        document.createElement(
-            "button"
-        );
+        document.createElement("button");
 
-    button.type =
-        "button";
+    button.type = "button";
 
     button.className =
         "schedule-button";
 
-
     const isSelected =
-        selectedSchedule ===
-        schedule.id;
-
+        selectedSchedule === schedule.id;
 
     if (isSelected) {
-
-        button.classList.add(
-            "selected"
-        );
-
+        button.classList.add("selected");
     }
-
 
     button.innerHTML = `
         <span>
@@ -603,41 +369,36 @@ function createScheduleButton(
             ${classesForSchedule.length}
             ${
                 classesForSchedule.length === 1
-                    ? "clase"
-                    : "clases"
+                    ? "actividad"
+                    : "actividades"
             }
         </small>
+
+        <b>
+            ${isSelected ? "↓" : "→"}
+        </b>
     `;
 
-
     /* =====================================================
-       CONTENEDOR DE LAS CLASES
+       CONTENIDO
        ===================================================== */
 
     const content =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     content.className =
         "schedule-item-content";
 
-
     if (isSelected) {
 
-        content.classList.add(
-            "open"
-        );
-
+        content.classList.add("open");
 
         renderClassesIntoContainer(
             classesForSchedule,
             content,
             schedule.label
         );
-
     }
-
 
     /* =====================================================
        CLICK
@@ -651,40 +412,21 @@ function createScheduleButton(
                 selectedSchedule ===
                 schedule.id
             ) {
-
-                selectedSchedule =
-                    null;
-
-            }
-
-            else {
-
+                selectedSchedule = null;
+            } else {
                 selectedSchedule =
                     schedule.id;
-
             }
 
-
             renderSchedules();
-
         }
     );
 
-
-    wrapper.appendChild(
-        button
-    );
-
-
-    wrapper.appendChild(
-        content
-    );
-
+    wrapper.appendChild(button);
+    wrapper.appendChild(content);
 
     return wrapper;
-
 }
-
 
 /* =========================================================
    CREAR BOTÓN DE ACTIVIDADES SIN HORARIO
@@ -695,43 +437,25 @@ function createNoScheduleButton(
 ) {
 
     const wrapper =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     wrapper.className =
         "schedule-item";
 
-
-    /* =====================================================
-       BOTÓN
-       ===================================================== */
-
     const button =
-        document.createElement(
-            "button"
-        );
+        document.createElement("button");
 
-    button.type =
-        "button";
+    button.type = "button";
 
     button.className =
         "schedule-button no-schedule-button";
 
-
     const isSelected =
-        selectedSchedule ===
-        "__NO_SCHEDULE__";
-
+        selectedSchedule === "__NO_SCHEDULE__";
 
     if (isSelected) {
-
-        button.classList.add(
-            "selected"
-        );
-
+        button.classList.add("selected");
     }
-
 
     button.innerHTML = `
         <span>
@@ -748,47 +472,26 @@ function createNoScheduleButton(
         </small>
 
         <b>
-            ${
-                isSelected
-                    ? "↓"
-                    : "→"
-            }
+            ${isSelected ? "↓" : "→"}
         </b>
     `;
 
-
-    /* =====================================================
-       CONTENIDO
-       ===================================================== */
-
     const content =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     content.className =
         "schedule-item-content";
 
-
     if (isSelected) {
 
-        content.classList.add(
-            "open"
-        );
-
+        content.classList.add("open");
 
         renderClassesIntoContainer(
             classesWithoutSchedule,
             content,
             "Actividades sin horario"
         );
-
     }
-
-
-    /* =====================================================
-       CLICK
-       ===================================================== */
 
     button.addEventListener(
         "click",
@@ -798,40 +501,21 @@ function createNoScheduleButton(
                 selectedSchedule ===
                 "__NO_SCHEDULE__"
             ) {
-
-                selectedSchedule =
-                    null;
-
-            }
-
-            else {
-
+                selectedSchedule = null;
+            } else {
                 selectedSchedule =
                     "__NO_SCHEDULE__";
-
             }
 
-
             renderSchedules();
-
         }
     );
 
-
-    wrapper.appendChild(
-        button
-    );
-
-
-    wrapper.appendChild(
-        content
-    );
-
+    wrapper.appendChild(button);
+    wrapper.appendChild(content);
 
     return wrapper;
-
 }
-
 
 /* =========================================================
    RENDERIZAR TODOS LOS HORARIOS
@@ -844,7 +528,6 @@ function renderSchedules() {
             "class-schedules"
         );
 
-
     if (!section) {
 
         console.error(
@@ -852,27 +535,19 @@ function renderSchedules() {
         );
 
         return;
-
     }
 
-
-    section.innerHTML =
-        "";
-
+    section.innerHTML = "";
 
     /* =====================================================
        CABECERA
        ===================================================== */
 
     const heading =
-        document.createElement(
-            "div"
-        );
-
+        document.createElement("div");
 
     heading.className =
         "schedule-heading";
-
 
     heading.innerHTML = `
         <p class="eyebrow">
@@ -880,15 +555,11 @@ function renderSchedules() {
         </p>
 
         <h3>
-            Horarios/actividades
+            Horarios y actividades
         </h3>
     `;
 
-
-    section.appendChild(
-        heading
-    );
-
+    section.appendChild(heading);
 
     /* =====================================================
        HORARIOS PRINCIPALES
@@ -897,39 +568,24 @@ function renderSchedules() {
     const mainSchedules =
         getMainSchedules();
 
-
-    if (
-        mainSchedules.length > 0
-    ) {
+    if (mainSchedules.length > 0) {
 
         const mainTitle =
-            document.createElement(
-                "p"
-            );
-
+            document.createElement("p");
 
         mainTitle.className =
             "schedule-group-title";
 
-
         mainTitle.textContent =
             "HORARIOS PRINCIPALES";
 
-
-        section.appendChild(
-            mainTitle
-        );
-
+        section.appendChild(mainTitle);
 
         const mainContainer =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         mainContainer.className =
             "schedule-buttons";
-
 
         mainSchedules.forEach(
             schedule => {
@@ -939,17 +595,13 @@ function renderSchedules() {
                         schedule
                     )
                 );
-
             }
         );
-
 
         section.appendChild(
             mainContainer
         );
-
     }
-
 
     /* =====================================================
        OTROS HORARIOS
@@ -958,39 +610,26 @@ function renderSchedules() {
     const otherSchedules =
         getOtherSchedules();
 
-
-    if (
-        otherSchedules.length > 0
-    ) {
+    if (otherSchedules.length > 0) {
 
         const otherTitle =
-            document.createElement(
-                "p"
-            );
-
+            document.createElement("p");
 
         otherTitle.className =
             "schedule-group-title other-schedule-title";
 
-
         otherTitle.textContent =
             "OTROS HORARIOS";
-
 
         section.appendChild(
             otherTitle
         );
 
-
         const otherContainer =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         otherContainer.className =
             "schedule-buttons";
-
 
         otherSchedules.forEach(
             schedule => {
@@ -1000,17 +639,13 @@ function renderSchedules() {
                         schedule
                     )
                 );
-
             }
         );
-
 
         section.appendChild(
             otherContainer
         );
-
     }
-
 
     /* =====================================================
        ACTIVIDADES SIN HORARIO
@@ -1019,39 +654,28 @@ function renderSchedules() {
     const classesWithoutSchedule =
         getClassesWithoutSchedule();
 
-
     if (
         classesWithoutSchedule.length > 0
     ) {
 
         const noScheduleTitle =
-            document.createElement(
-                "p"
-            );
-
+            document.createElement("p");
 
         noScheduleTitle.className =
             "schedule-group-title no-schedule-title";
 
-
         noScheduleTitle.textContent =
             "INFORMACIÓN / ACTIVIDADES SIN HORARIO";
-
 
         section.appendChild(
             noScheduleTitle
         );
 
-
         const noScheduleContainer =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         noScheduleContainer.className =
             "schedule-buttons";
-
 
         noScheduleContainer.appendChild(
             createNoScheduleButton(
@@ -1059,18 +683,257 @@ function renderSchedules() {
             )
         );
 
-
         section.appendChild(
             noScheduleContainer
         );
-
     }
-
 }
 
+/* =========================================================
+   CREAR SECCIÓN DE TIPO
+   ========================================================= */
+
+function createTypeSection(
+    type,
+    classes
+) {
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "class-type-section";
+
+    const title =
+        document.createElement("div");
+
+    title.className =
+        "class-type-title";
+
+    title.innerHTML = `
+        <p class="eyebrow">
+            ${type}
+        </p>
+    `;
+
+    wrapper.appendChild(title);
+
+    const cards =
+        document.createElement("div");
+
+    cards.className =
+        "class-grid-inner";
+
+    classes.forEach(
+        classItem => {
+
+            cards.appendChild(
+                createClassCard(
+                    classItem
+                )
+            );
+        }
+    );
+
+    wrapper.appendChild(cards);
+
+    return wrapper;
+}
 
 /* =========================================================
-   RENDERIZAR CLASES
+   CREAR TARJETA DE CLASE
+   ========================================================= */
+
+function createClassCard(classItem) {
+
+    /*
+     * Si capacity es un número positivo,
+     * la clase tiene plazas limitadas.
+     *
+     * Si está vacío/null,
+     * se considera ilimitada.
+     */
+
+    const hasCapacity =
+        classItem.capacity !== null &&
+        classItem.capacity !== undefined &&
+        String(
+            classItem.capacity
+        ).trim() !== "" &&
+        Number.isFinite(
+            Number(
+                classItem.capacity
+            )
+        ) &&
+        Number(
+            classItem.capacity
+        ) > 0;
+
+    const placesLeft =
+        hasCapacity
+            ? Number(
+                classItem.capacity
+            ) -
+            Number(
+                classItem.bookedCount || 0
+            )
+            : null;
+
+    const isFull =
+        hasCapacity &&
+        placesLeft <= 0;
+
+    const card =
+        document.createElement("article");
+
+    card.className =
+        "class-card";
+
+    const displayTime =
+        normalizeTime(
+            classItem.time
+        );
+
+    const type =
+        normalizeType(
+            classItem.tipo
+        );
+
+    card.innerHTML = `
+        <img
+            src="${escapeHtml(
+                classItem.imageUrl || ""
+            )}"
+            alt="${escapeHtml(
+                classItem.title ||
+                "Actividad"
+            )}"
+        >
+
+        <div class="card-body">
+
+            <div class="card-top">
+
+                <span>
+                    ${type}
+                    ${
+                        classItem.duration
+                            ? ` · ${classItem.duration} MIN`
+                            : ""
+                    }
+                </span>
+
+                <span
+                    class="availability ${
+                        isFull
+                            ? "full"
+                            : ""
+                    }"
+                >
+                    ${
+                        isFull
+                            ? "Clase completa"
+                            : hasCapacity
+                                ? `${placesLeft} plazas`
+                                : "Plazas disponibles"
+                    }
+                </span>
+
+            </div>
+
+            <h3>
+                ${escapeHtml(
+                    classItem.title || ""
+                )}
+            </h3>
+
+            <p>
+                ${escapeHtml(
+                    classItem.trainer || ""
+                )}
+
+                ${
+                    classItem.trainer &&
+                    classItem.date
+                        ? " · "
+                        : ""
+                }
+
+                ${
+                    classItem.date
+                        ? formatDate(
+                            classItem.date
+                        )
+                        : ""
+                }
+
+                ${
+                    displayTime
+                        ? " · "
+                        : ""
+                }
+
+                ${displayTime}
+            </p>
+
+            ${
+                classItem.description
+                    ? `
+                        <p class="description">
+                            ${escapeHtml(
+                                classItem.description
+                            )}
+                        </p>
+                    `
+                    : ""
+            }
+
+            ${
+                isFull
+                    ? `
+                        <button
+                            type="button"
+                            class="reserve"
+                            disabled
+                        >
+                            Clase completa
+                        </button>
+                    `
+                    : `
+                        <a
+                            class="reserve"
+                            href="/reservar/${encodeURIComponent(
+                                classItem.id
+                            )}"
+                        >
+                            Reservar plaza
+                            <b>→</b>
+                        </a>
+                    `
+            }
+
+        </div>
+    `;
+
+    return card;
+}
+
+/* =========================================================
+   ESCAPAR HTML
+   ========================================================= */
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+/* =========================================================
+   RENDERIZAR CLASES DENTRO DEL HORARIO
    ========================================================= */
 
 function renderClassesIntoContainer(
@@ -1079,19 +942,11 @@ function renderClassesIntoContainer(
     selectedLabel
 ) {
 
-    /* =====================================================
-       CABECERA
-       ===================================================== */
-
     const heading =
-        document.createElement(
-            "div"
-        );
-
+        document.createElement("div");
 
     heading.className =
         "selected-schedule-heading";
-
 
     heading.innerHTML = `
         <div>
@@ -1112,37 +967,25 @@ function renderClassesIntoContainer(
         </div>
     `;
 
-
     container.appendChild(
         heading
     );
 
-
-    /* =====================================================
-       NO HAY CLASES
-       ===================================================== */
-
-    if (
-        classes.length === 0
-    ) {
+    if (classes.length === 0) {
 
         const empty =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         empty.className =
             "schedule-empty";
 
-
         empty.innerHTML = `
             <p class="eyebrow">
-                SIN CLASES
+                SIN ACTIVIDADES
             </p>
 
             <h3>
-                No hay clases en este horario.
+                No hay actividades en este horario.
             </h3>
 
             <p>
@@ -1150,403 +993,94 @@ function renderClassesIntoContainer(
             </p>
         `;
 
-
         container.appendChild(
             empty
         );
 
-
         return;
-
     }
 
+    /*
+     * Agrupamos por TIPO:
+     *
+     * DEPORTIVO
+     * CLÍNICO
+     * OTROS
+     */
 
-    /* =====================================================
-       ORDENAR POR CATEGORÍA
-       ===================================================== */
-
-    const categoryOrder = {
-        clinical: 1,
-        sports: 2,
-        other: 3
+    const grouped = {
+        DEPORTIVO: [],
+        "CLÍNICO": [],
+        OTROS: []
     };
 
-
-    const orderedClasses =
-        [...classes].sort(
-            (a, b) => {
-
-                const categoryA =
-                    getClassCategory(a);
-
-                const categoryB =
-                    getClassCategory(b);
-
-
-                /*
-                 * Primero categoría y después
-                 * nombre del centro.
-                 */
-
-                if (
-                    categoryOrder[categoryA] !==
-                    categoryOrder[categoryB]
-                ) {
-
-                    return (
-                        categoryOrder[categoryA] -
-                        categoryOrder[categoryB]
-                    );
-
-                }
-
-
-                const trainerA =
-                    String(
-                        a.trainer || ""
-                    ).toLowerCase();
-
-
-                const trainerB =
-                    String(
-                        b.trainer || ""
-                    ).toLowerCase();
-
-
-                return trainerA.localeCompare(
-                    trainerB
-                );
-
-            }
-        );
-
-
-    /* =====================================================
-       CONTENEDOR DE TARJETAS
-       ===================================================== */
-
-    const cards =
-        document.createElement(
-            "div"
-        );
-
-
-    cards.className =
-        "class-grid-inner";
-
-
-    /* =====================================================
-       TARJETAS
-       ===================================================== */
-
-    let previousCategory =
-        null;
-
-
-    orderedClasses.forEach(
+    classes.forEach(
         classItem => {
 
-            const currentCategory =
-                getClassCategory(
+            const type =
+                normalizeType(
+                    classItem.tipo
+                );
+
+            if (!grouped[type]) {
+                grouped.OTROS.push(
                     classItem
                 );
-
-
-            /*
-             * Añadimos el título de categoría
-             * cuando cambia.
-             */
-
-            if (
-                currentCategory !==
-                previousCategory
-            ) {
-
-                const categoryHeading =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                categoryHeading.className =
-                    "class-category-heading";
-
-
-                categoryHeading.innerHTML = `
-                    <span>
-                        ${getCategoryLabel(
-                            currentCategory
-                        )}
-                    </span>
-                `;
-
-
-                cards.appendChild(
-                    categoryHeading
+            } else {
+                grouped[type].push(
+                    classItem
                 );
-
-
-                previousCategory =
-                    currentCategory;
-
             }
-
-
-            /* =================================================
-               CAPACIDAD
-               ================================================= */
-
-            const hasCapacity =
-                classItem.capacity !== null &&
-                classItem.capacity !== undefined &&
-                String(
-                    classItem.capacity
-                ).trim() !== "" &&
-                Number.isFinite(
-                    Number(
-                        classItem.capacity
-                    )
-                ) &&
-                Number(
-                    classItem.capacity
-                ) > 0;
-
-
-            const placesLeft =
-                hasCapacity
-                    ? Number(
-                        classItem.capacity
-                    ) -
-                    Number(
-                        classItem.bookedCount || 0
-                    )
-                    : null;
-
-
-            const isFull =
-                hasCapacity &&
-                placesLeft <= 0;
-
-
-            /* =================================================
-               TARJETA
-               ================================================= */
-
-            const card =
-                document.createElement(
-                    "article"
-                );
-
-
-            card.className =
-                "class-card";
-
-
-            /* =================================================
-               HORA
-               ================================================= */
-
-            const displayTime =
-                normalizeTime(
-                    classItem.time
-                );
-
-
-            /* =================================================
-               HTML
-               ================================================= */
-
-            card.innerHTML = `
-
-                <img
-                    src="${
-                        classItem.imageUrl || ""
-                    }"
-                    alt="${
-                        classItem.title ||
-                        "Clase"
-                    }"
-                >
-
-
-                <div class="card-body">
-
-
-                    <div class="card-top">
-
-                        <span>
-                            ${
-                                classItem.duration
-                                    ? `${classItem.duration} MIN`
-                                    : ""
-                            }
-                        </span>
-
-
-                        <span
-                            class="availability ${
-                                isFull
-                                    ? "full"
-                                    : ""
-                            }"
-                        >
-                            ${
-                                isFull
-                                    ? "Clase completa"
-                                    : hasCapacity
-                                        ? `${placesLeft} plazas`
-                                        : "Plazas disponibles"
-                            }
-                        </span>
-
-                    </div>
-
-
-                    <h3>
-                        ${
-                            classItem.title ||
-                            ""
-                        }
-                    </h3>
-
-
-                    <p>
-
-                        ${
-                            classItem.trainer ||
-                            ""
-                        }
-
-                        ${
-                            classItem.trainer &&
-                            classItem.date
-                                ? " · "
-                                : ""
-                        }
-
-                        ${
-                            classItem.date
-                                ? formatDate(
-                                    classItem.date
-                                )
-                                : ""
-                        }
-
-                        ${
-                            displayTime
-                                ? " · "
-                                : ""
-                        }
-
-                        ${
-                            displayTime ||
-                            ""
-                        }
-
-                    </p>
-
-
-                    ${
-                        classItem.description
-                            ? `
-                                <p class="description">
-                                    ${classItem.description}
-                                </p>
-                            `
-                            : ""
-                    }
-
-
-                    ${
-                        isFull
-
-                            ? `
-                                <button
-                                    type="button"
-                                    class="reserve"
-                                    disabled
-                                >
-                                    Clase completa
-                                </button>
-                            `
-
-                            : `
-
-                                <a
-                                    class="reserve"
-                                    href="/reservar/${encodeURIComponent(
-                                        classItem.id
-                                    )}"
-                                >
-
-                                    Reservar plaza
-
-                                    <b>
-                                        →
-                                    </b>
-
-                                </a>
-
-                            `
-                    }
-
-
-                </div>
-
-            `;
-
-
-            cards.appendChild(
-                card
-            );
-
         }
     );
 
+    /*
+     * Primero DEPORTIVO,
+     * después CLÍNICO,
+     * después OTROS.
+     */
 
-    container.appendChild(
-        cards
-    );
+    [
+        "DEPORTIVO",
+        "CLÍNICO",
+        "OTROS"
+    ].forEach(type => {
 
+        if (
+            grouped[type].length === 0
+        ) {
+            return;
+        }
+
+        container.appendChild(
+            createTypeSection(
+                type,
+                grouped[type]
+            )
+        );
+    });
 }
-
 
 /* =========================================================
    FORMATEAR FECHA
-   =========================================================
-
-   Convierte:
-
-   2026-10-03
-
-   en:
-
-   03 de octubre de 2026
    ========================================================= */
 
-function formatDate(
-    value
-) {
+function formatDate(value) {
 
     if (!value) {
-
         return "Fecha no disponible";
-
     }
-
 
     const text =
         String(value).trim();
-
 
     let day;
     let month;
     let year;
 
-
-    /* =====================================================
-       2026-10-03
-       ===================================================== */
+    /*
+     * 2026-10-03
+     */
 
     if (
         /^\d{4}-\d{2}-\d{2}$/.test(
@@ -1558,15 +1092,12 @@ function formatDate(
             year,
             month,
             day
-        ] =
-            text.split("-");
-
+        ] = text.split("-");
     }
 
-
-    /* =====================================================
-       03/10/2026
-       ===================================================== */
+    /*
+     * 03/10/2026
+     */
 
     else if (
         /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
@@ -1578,32 +1109,25 @@ function formatDate(
             day,
             month,
             year
-        ] =
-            text.split("/");
-
+        ] = text.split("/");
     }
 
-
-    /* =====================================================
-       OTROS FORMATOS
-       ===================================================== */
+    /*
+     * Otros formatos
+     */
 
     else {
 
         const date =
             new Date(text);
 
-
         if (
             Number.isNaN(
                 date.getTime()
             )
         ) {
-
             return "Fecha no disponible";
-
         }
-
 
         day =
             String(
@@ -1613,7 +1137,6 @@ function formatDate(
                 "0"
             );
 
-
         month =
             String(
                 date.getMonth() + 1
@@ -1622,17 +1145,13 @@ function formatDate(
                 "0"
             );
 
-
         year =
             String(
                 date.getFullYear()
             );
-
     }
 
-
     const months = [
-
         "enero",
         "febrero",
         "marzo",
@@ -1645,13 +1164,10 @@ function formatDate(
         "octubre",
         "noviembre",
         "diciembre"
-
     ];
-
 
     const monthIndex =
         Number(month) - 1;
-
 
     if (
         monthIndex < 0 ||
@@ -1659,9 +1175,7 @@ function formatDate(
     ) {
 
         return `${day}/${month}/${year}`;
-
     }
-
 
     return `
         ${day}
@@ -1675,9 +1189,7 @@ function formatDate(
             " "
         )
         .trim();
-
 }
-
 
 /* =========================================================
    INICIAR
