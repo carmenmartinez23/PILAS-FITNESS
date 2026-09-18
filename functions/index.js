@@ -1,1430 +1,2079 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { defineSecret } = require("firebase-functions/params");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const crypto = require("crypto");
+const { google } = require("googleapis");
 
-import {
-    getFirestore,
-    collection,
-    getDocs
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+initializeApp();
 
-import {
-    getFunctions,
-    httpsCallable
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+const db = getFirestore();
 
-import { firebaseConfig } from "./firebase-config.js";
+// ======================================================
+// SECRETS
+// ======================================================
 
+const resendApiKey = defineSecret("RESEND_API_KEY");
 
-/* =========================================================
-   FIREBASE
-   ========================================================= */
+const googleServiceAccountJson =
+    defineSecret("GOOGLE_SERVICE_ACCOUNT_JSON");
 
-const app = initializeApp(firebaseConfig);
+// ======================================================
+// GOOGLE SHEETS
+// ======================================================
 
-const db = getFirestore(app);
+const SPREADSHEET_ID =
+    "1Nl_LtlQX-nVc4yUd0yd-HsQwceFXTe9CrUPdsKx449s";
 
-const functions = getFunctions(
-    app,
-    "us-central1"
-);
+const CLASES_SHEET = "CLASES";
+const RESERVAS_SHEET = "RESERVAS";
+const CANCELACIONES_SHEET = "CANCELACIONES";
 
-const syncClassesFunction = httpsCallable(
-    functions,
-    "syncClassesFromSheets"
-);
+// ======================================================
+// GOOGLE SHEETS - CONEXIÓN
+// ======================================================
 
+function obtenerClienteSheets() {
+    const credentials =
+        JSON.parse(
+            googleServiceAccountJson.value()
+        );
 
-/* =========================================================
-   ELEMENTOS
-   ========================================================= */
+    const auth =
+        new google.auth.GoogleAuth({
+            credentials,
+            scopes: [
+                "https://www.googleapis.com/auth/spreadsheets"
+            ]
+        });
 
-const classGrid =
-    document.getElementById("class-grid");
+    return google.sheets({
+        version: "v4",
+        auth
+    });
+}
 
+// ======================================================
+// CREAR PESTAÑA CLASES SI NO EXISTE
+// ======================================================
 
-/* =========================================================
-   HORARIOS PRINCIPALES
-   ========================================================= */
+async function asegurarPestanaClases(sheets) {
+    const spreadsheet =
+        await sheets.spreadsheets.get({
+            spreadsheetId: SPREADSHEET_ID,
+            fields: "sheets.properties"
+        });
 
-const MAIN_SCHEDULES = [
-    {
-        id: "10:30-11:10",
-        label: "10:30-11:10"
-    },
-    {
-        id: "11:30-12:10",
-        label: "11:30-12:10"
-    },
-    {
-        id: "12:30-13:10",
-        label: "12:30-13:10"
+    const existeClases =
+        spreadsheet.data.sheets?.some(
+            sheet =>
+                sheet.properties?.title === CLASES_SHEET
+        );
+
+    if (existeClases) {
+        return;
     }
-];
 
+    console.log(
+        "La pestaña CLASES no existe. Creándola..."
+    );
 
-/* =========================================================
-   VARIABLES
-   ========================================================= */
+    await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: {
+            requests: [
+                {
+                    addSheet: {
+                        properties: {
+                            title: CLASES_SHEET
+                        }
+                    }
+                }
+            ]
+        }
+    });
 
-let allClasses = [];
+    await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${CLASES_SHEET}!A1:J1`,
+        valueInputOption: "RAW",
+        requestBody: {
+            values: [[
+                "id",
+                "title",
+                "trainer",
+                "date",
+                "time",
+                "duration",
+                "capacity",
+                "description",
+                "imageUrl",
+                "activa"
+            ]]
+        }
+    });
 
-let selectedSchedule = null;
+    console.log(
+        "Pestaña CLASES creada correctamente."
+    );
+}
 
+// ======================================================
+// OBTENER CLASES DESDE GOOGLE SHEETS
+// ======================================================
 
-/* =========================================================
-   CARGAR CLASES
-   ========================================================= */
+async function obtenerClasesDesdeSheets() {
+    const sheets =
+        obtenerClienteSheets();
 
-async function loadClasses() {
+    await asegurarPestanaClases(sheets);
+
+    const response =
+        await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${CLASES_SHEET}!A:J`,
+            valueRenderOption: "FORMATTED_VALUE"
+        });
+
+    const rows =
+        response.data.values || [];
+
+    if (rows.length <= 1) {
+        return [];
+    }
+
+    const classes = [];
+
+    for (
+        let i = 1;
+        i < rows.length;
+        i++
+    ) {
+        const row =
+            rows[i] || [];
+
+        const id =
+            String(row[0] || "").trim();
+
+        if (!id) {
+            continue;
+        }
+
+        const title =
+            String(row[1] || "").trim();
+
+        const trainer =
+            String(row[2] || "").trim();
+
+        const date =
+            String(row[3] || "").trim();
+
+        const time =
+            String(row[4] || "").trim();
+
+        const duration =
+            Number(row[5] || 0);
+
+        const capacityRaw =
+            String(row[6] ?? "").trim();
+
+        let capacity = null;
+
+        if (capacityRaw !== "") {
+            const parsedCapacity = Number(capacityRaw);
+
+            if (
+                Number.isFinite(parsedCapacity) &&
+                parsedCapacity > 0
+            ) {
+                capacity = parsedCapacity;
+            }
+        }
+
+        const description =
+            String(row[7] || "").trim();
+
+        const imageUrl =
+            String(row[8] || "").trim();
+
+        const activaValue =
+            String(row[9] ?? "")
+                .trim()
+                .toLowerCase();
+
+        /*
+         * Si la celda está vacía, la consideramos activa.
+         *
+         * También aceptamos:
+         * TRUE
+         * true
+         * sí
+         * si
+         * 1
+         */
+
+        const activa =
+            activaValue === "" ||
+            activaValue === "true" ||
+            activaValue === "sí" ||
+            activaValue === "si" ||
+            activaValue === "1";
+
+        classes.push({
+            id,
+            title,
+            trainer,
+            date,
+            time,
+            duration,
+            capacity,
+            description,
+            imageUrl,
+            activa
+        });
+    }
+
+    return classes;
+}
+
+// ======================================================
+// SINCRONIZAR GOOGLE SHEETS → FIRESTORE
+// ======================================================
+
+async function sincronizarClasesConFirestore() {
+    const classes =
+        await obtenerClasesDesdeSheets();
+
+    const classesCollection =
+        db.collection("classes");
+
+    const batch =
+        db.batch();
+
+    const sheetClassIds =
+        new Set(
+            classes.map(
+                classData =>
+                    classData.id
+            )
+        );
+
+    // ==================================================
+    // CLASES DE FIRESTORE QUE YA NO ESTÁN EN SHEETS
+    // ==================================================
+
+    const firestoreSnapshot =
+        await classesCollection.get();
+
+    firestoreSnapshot.forEach(doc => {
+
+        /*
+         * No borramos la clase.
+         * Simplemente la desactivamos.
+         */
+
+        if (
+            !sheetClassIds.has(doc.id)
+        ) {
+            batch.set(
+                doc.ref,
+                {
+                    activa: false
+                },
+                {
+                    merge: true
+                }
+            );
+        }
+    });
+
+    // ==================================================
+    // ACTUALIZAR / CREAR CLASES DE SHEETS
+    // ==================================================
+
+    for (
+        const classData of classes
+    ) {
+        const classRef =
+            classesCollection.doc(
+                classData.id
+            );
+
+        /*
+         * Recuperamos la clase actual para conservar
+         * bookedCount.
+         */
+
+        const existing =
+            await classRef.get();
+
+        const existingData =
+            existing.exists
+                ? existing.data()
+                : {};
+
+        const bookedCount =
+            Number(
+                existingData.bookedCount || 0
+            );
+
+        batch.set(
+            classRef,
+            {
+                title:
+                    classData.title,
+
+                trainer:
+                    classData.trainer,
+
+                date:
+                    classData.date,
+
+                time:
+                    classData.time,
+
+                duration:
+                    classData.duration,
+
+                capacity:
+                    classData.capacity,
+
+                description:
+                    classData.description,
+
+                imageUrl:
+                    classData.imageUrl,
+
+                activa:
+                    classData.activa,
+
+                bookedCount:
+                    bookedCount
+            },
+            {
+                merge: true
+            }
+        );
+    }
+
+    // ==================================================
+    // GUARDAR CAMBIOS
+    // ==================================================
+
+    if (
+        classes.length > 0 ||
+        firestoreSnapshot.size > 0
+    ) {
+        await batch.commit();
+    }
+
+    console.log(
+        `Clases sincronizadas desde Google Sheets: ${classes.length}`
+    );
+
+    return classes;
+}
+
+// ======================================================
+// CLOUD FUNCTION - SINCRONIZAR CLASES
+// ======================================================
+
+exports.syncClassesFromSheets = onCall(
+        {
+            secrets: [
+                googleServiceAccountJson
+            ]
+        },
+        async () => {
+
+            try {
+
+                const classes =
+                    await sincronizarClasesConFirestore();
+
+                return {
+                    success: true,
+                    classesCount:
+                        classes.length
+                };
+
+            } catch (error) {
+
+                console.error(
+                    "Error sincronizando clases desde Google Sheets:",
+                    error
+                );
+
+                throw new HttpsError(
+                    "internal",
+                    "No se han podido sincronizar las clases."
+                );
+            }
+        }
+    );
+
+// ======================================================
+// SINCRONIZACIÓN AUTOMÁTICA GOOGLE SHEETS → FIRESTORE
+// ======================================================
+
+exports.syncClassesAutomatically = onSchedule(
+    {
+        schedule: "every 5 minutes",
+        timeZone: "Europe/Madrid",
+        secrets: [
+            googleServiceAccountJson
+        ]
+    },
+    async () => {
+        try {
+            const classes =
+                await sincronizarClasesConFirestore();
+
+            console.log(
+                `Sincronización automática completada: ${classes.length} clases.`
+            );
+        } catch (error) {
+            console.error(
+                "Error en la sincronización automática de clases:",
+                error
+            );
+
+            throw error;
+        }
+    }
+);
+
+// ======================================================
+// REGISTRAR RESERVA EN GOOGLE SHEETS
+// ======================================================
+
+async function registrarReservaEnSheets(
+    booking,
+    fitnessClass
+) {
 
     try {
 
-        /*
-         * Google Sheets es la fuente principal.
-         * Primero sincronizamos y después leemos Firestore.
-         */
+        const sheets =
+            obtenerClienteSheets();
 
-        await syncClassesFunction();
+        await sheets.spreadsheets.values.append({
+            spreadsheetId:
+                SPREADSHEET_ID,
 
+            range:
+                `${RESERVAS_SHEET}!A:J`,
 
-        const snapshot = await getDocs(
-            collection(db, "classes")
-        );
+            valueInputOption:
+                "USER_ENTERED",
 
+            requestBody: {
+                values: [[
 
-        allClasses = [];
+                    new Date()
+                        .toLocaleString("es-ES"),
 
+                    booking.entryNumber,
 
-        snapshot.forEach(doc => {
+                    booking.name,
 
-            const data = doc.data();
+                    booking.phone,
 
+                    booking.email,
 
-            /*
-             * No mostramos clases desactivadas.
-             */
+                    booking.birthDate,
 
-            if (data.activa === false) {
-                return;
+                    fitnessClass.title,
+
+                    fitnessClass.trainer,
+
+                    fitnessClass.date,
+
+                    fitnessClass.time
+
+                ]]
             }
-
-
-            allClasses.push({
-                id: doc.id,
-                ...data
-            });
-
         });
 
-
-        /*
-         * Ordenamos primero por fecha
-         * y después por hora.
-         */
-
-        allClasses.sort((a, b) => {
-
-            const dateA =
-                `${a.date || ""} ${normalizeTime(a.time)}`;
-
-            const dateB =
-                `${b.date || ""} ${normalizeTime(b.time)}`;
-
-            return dateA.localeCompare(dateB);
-
-        });
-
-
-        renderSchedules();
-
+        console.log(
+            `Reserva registrada en Google Sheets: ${booking.entryNumber} - ${booking.email} - ${fitnessClass.title}`
+        );
 
     } catch (error) {
 
         console.error(
-            "Error cargando las clases:",
+            "No se pudo registrar la reserva en Google Sheets:",
             error
         );
-
-
-        if (classGrid) {
-
-            classGrid.innerHTML = `
-                <div class="schedule-empty">
-
-                    <p class="eyebrow">
-                        ERROR
-                    </p>
-
-                    <h3>
-                        No se han podido cargar las clases.
-                    </h3>
-
-                    <p>
-                        Inténtalo de nuevo.
-                    </p>
-
-                </div>
-            `;
-
-        }
-
     }
-
 }
 
+// ======================================================
+// REGISTRAR CANCELACIÓN EN GOOGLE SHEETS
+// ======================================================
 
-/* =========================================================
-   NORMALIZAR HORARIOS
-   =========================================================
-
-   Convierte:
-
-   10,30-12,00
-   10:30-12:00
-   10,30 - 12,00
-   10:30 - 12:00
-
-   en:
-
-   10:30-12:00
-   ========================================================= */
-
-function normalizeTime(value) {
-
-    if (
-        value === undefined ||
-        value === null
-    ) {
-        return "";
-    }
-
-
-    let time = String(value).trim();
-
-
-    if (!time) {
-        return "";
-    }
-
-
-    /*
-     * Convierte comas en dos puntos.
-     *
-     * 10,30 → 10:30
-     */
-
-    time = time.replace(
-        /(\d{1,2}),(\d{2})/g,
-        "$1:$2"
-    );
-
-
-    /*
-     * Quitamos espacios.
-     */
-
-    time = time.replace(
-        /\s/g,
-        ""
-    );
-
-
-    /*
-     * Normalizamos guiones.
-     */
-
-    time = time.replace(
-        /–/g,
-        "-"
-    );
-
-    time = time.replace(
-        /—/g,
-        "-"
-    );
-
-
-    return time;
-
-}
-
-
-/* =========================================================
-   OBTENER TODOS LOS HORARIOS
-   ========================================================= */
-
-function getAvailableSchedules() {
-
-    const schedules = new Map();
-
-
-    allClasses.forEach(classItem => {
-
-        const normalized =
-            normalizeTime(classItem.time);
-
-
-        /*
-         * Las clases sin horario no entran aquí.
-         */
-
-        if (!normalized) {
-            return;
-        }
-
-
-        if (!schedules.has(normalized)) {
-
-            schedules.set(
-                normalized,
-                {
-                    id: normalized,
-                    label: normalized
-                }
-            );
-
-        }
-
-    });
-
-
-    return Array.from(
-        schedules.values()
-    );
-
-}
-
-
-/* =========================================================
-   OBTENER HORARIOS PRINCIPALES
-   ========================================================= */
-
-function getMainSchedules() {
-
-    return MAIN_SCHEDULES.filter(
-        schedule => {
-
-            return allClasses.some(
-                classItem =>
-                    normalizeTime(
-                        classItem.time
-                    ) === schedule.id
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   OBTENER OTROS HORARIOS
-   ========================================================= */
-
-function getOtherSchedules() {
-
-    const mainIds =
-        MAIN_SCHEDULES.map(
-            schedule => schedule.id
-        );
-
-
-    const schedules =
-        getAvailableSchedules();
-
-
-    return schedules
-        .filter(
-            schedule =>
-                !mainIds.includes(
-                    schedule.id
-                )
-        )
-        .sort(
-            (a, b) =>
-                a.id.localeCompare(b.id)
-        );
-
-}
-
-
-/* =========================================================
-   OBTENER CLASES DE UN HORARIO
-   ========================================================= */
-
-function getClassesForSchedule(
-    schedule
+async function registrarCancelacionEnSheets(
+    booking,
+    fitnessClass
 ) {
 
-    return allClasses.filter(
-        classItem => {
+    try {
 
-            const classTime =
-                normalizeTime(
-                    classItem.time
-                );
+        const sheets =
+            obtenerClienteSheets();
 
+        await sheets.spreadsheets.values.append({
+            spreadsheetId:
+                SPREADSHEET_ID,
 
-            return (
-                classTime === schedule.id
-            );
+            range:
+                `${CANCELACIONES_SHEET}!A:J`,
 
-        }
-    );
+            valueInputOption:
+                "USER_ENTERED",
 
-}
+            requestBody: {
+                values: [[
 
+                    new Date()
+                        .toLocaleString("es-ES"),
 
-/* =========================================================
-   OBTENER CLASES SIN HORARIO
-   ========================================================= */
+                    booking.entryNumber,
 
-function getClassesWithoutSchedule() {
+                    booking.name,
 
-    return allClasses.filter(
-        classItem => {
+                    booking.phone,
 
-            return !normalizeTime(
-                classItem.time
-            );
+                    booking.email,
 
-        }
-    );
+                    booking.birthDate,
 
-}
+                    fitnessClass.title,
 
+                    fitnessClass.trainer,
 
-/* =========================================================
-   CREAR BOTÓN DE HORARIO
-   ========================================================= */
+                    fitnessClass.date,
 
-function createScheduleButton(
-    schedule
-) {
+                    fitnessClass.time
 
-    const classesForSchedule =
-        getClassesForSchedule(
-            schedule
-        );
-
-
-    /*
-     * Contenedor completo del horario.
-     *
-     * Dentro estarán:
-     *
-     * - botón
-     * - clases desplegadas
-     */
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "schedule-item";
-
-
-    /* =====================================================
-       BOTÓN
-       ===================================================== */
-
-    const button =
-        document.createElement("button");
-
-    button.type = "button";
-
-    button.className =
-        "schedule-button";
-
-
-    const isSelected =
-        selectedSchedule === schedule.id;
-
-
-    if (isSelected) {
-
-        button.classList.add(
-            "selected"
-        );
-
-    }
-
-
-    button.innerHTML = `
-        <span>
-            ${schedule.label}
-        </span>
-
-        <small>
-            ${classesForSchedule.length}
-            ${
-                classesForSchedule.length === 1
-                    ? "clase"
-                    : "clases"
+                ]]
             }
-        </small>
-    `;
+        });
 
-
-    /* =====================================================
-       CONTENEDOR DE LAS CLASES
-       ===================================================== */
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "schedule-item-content";
-
-
-    /*
-     * Si este horario está seleccionado,
-     * ponemos las clases JUSTO debajo del botón.
-     */
-
-    if (isSelected) {
-
-        content.classList.add(
-            "open"
+        console.log(
+            `Cancelación registrada en Google Sheets: ${booking.entryNumber} - ${booking.email} - ${fitnessClass.title}`
         );
 
-
-        renderClassesIntoContainer(
-            classesForSchedule,
-            content,
-            schedule.label
-        );
-
-    }
-
-
-    /* =====================================================
-       CLICK DEL BOTÓN
-       ===================================================== */
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            /*
-             * Si pulsamos el horario que ya está abierto,
-             * lo cerramos.
-             */
-
-            if (
-                selectedSchedule ===
-                schedule.id
-            ) {
-
-                selectedSchedule = null;
-
-            }
-
-            /*
-             * Si pulsamos otro horario,
-             * abrimos ese.
-             */
-
-            else {
-
-                selectedSchedule =
-                    schedule.id;
-
-            }
-
-
-            renderSchedules();
-
-        }
-    );
-
-
-    wrapper.appendChild(
-        button
-    );
-
-
-    wrapper.appendChild(
-        content
-    );
-
-
-    return wrapper;
-
-}
-
-
-/* =========================================================
-   CREAR BOTÓN DE ACTIVIDADES SIN HORARIO
-   ========================================================= */
-
-function createNoScheduleButton(
-    classesWithoutSchedule
-) {
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "schedule-item";
-
-
-    /* =====================================================
-       BOTÓN
-       ===================================================== */
-
-    const button =
-        document.createElement("button");
-
-    button.type = "button";
-
-    button.className =
-        "schedule-button no-schedule-button";
-
-
-    const isSelected =
-        selectedSchedule ===
-        "__NO_SCHEDULE__";
-
-
-    if (isSelected) {
-
-        button.classList.add(
-            "selected"
-        );
-
-    }
-
-
-    button.innerHTML = `
-        <span>
-            Actividades sin horario
-        </span>
-
-        <small>
-            ${classesWithoutSchedule.length}
-            ${
-                classesWithoutSchedule.length === 1
-                    ? "actividad"
-                    : "actividades"
-            }
-        </small>
-
-        <b>
-            ${
-                isSelected
-                    ? "↓"
-                    : "→"
-            }
-        </b>
-    `;
-
-
-    /* =====================================================
-       CONTENIDO
-       ===================================================== */
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "schedule-item-content";
-
-
-    if (isSelected) {
-
-        content.classList.add(
-            "open"
-        );
-
-
-        renderClassesIntoContainer(
-            classesWithoutSchedule,
-            content,
-            "Actividades sin horario"
-        );
-
-    }
-
-
-    /* =====================================================
-       CLICK
-       ===================================================== */
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            if (
-                selectedSchedule ===
-                "__NO_SCHEDULE__"
-            ) {
-
-                selectedSchedule =
-                    null;
-
-            }
-
-            else {
-
-                selectedSchedule =
-                    "__NO_SCHEDULE__";
-
-            }
-
-
-            renderSchedules();
-
-        }
-    );
-
-
-    wrapper.appendChild(
-        button
-    );
-
-
-    wrapper.appendChild(
-        content
-    );
-
-
-    return wrapper;
-
-}
-
-
-/* =========================================================
-   RENDERIZAR TODOS LOS HORARIOS
-   ========================================================= */
-
-function renderSchedules() {
-
-    const section =
-        document.getElementById(
-            "class-schedules"
-        );
-
-
-    if (!section) {
+    } catch (error) {
 
         console.error(
-            "No existe el elemento #class-schedules."
+            "No se pudo registrar la cancelación en Google Sheets:",
+            error
         );
-
-        return;
-
     }
+}
 
+// ======================================================
+// RESEND - ENVIAR EMAIL
+// ======================================================
 
-    /*
-     * Limpiamos todo para volver a construir
-     * la estructura.
-     */
+async function sendResendEmail({
+    to,
+    subject,
+    html
+}) {
 
-    section.innerHTML = "";
+    const apiKey =
+        resendApiKey.value();
 
+    const response =
+        await fetch(
+            "https://api.resend.com/emails",
+            {
+                method: "POST",
 
-    /* =====================================================
-       CABECERA
-       ===================================================== */
+                headers: {
+                    "Authorization":
+                        `Bearer ${apiKey}`,
 
-    const heading =
-        document.createElement("div");
+                    "Content-Type":
+                        "application/json"
+                },
 
+                body:
+                    JSON.stringify({
+                        from:
+                            "REVITALÍZATE <cuentas@pilas-fitness.es>",
 
-    heading.className =
-        "schedule-heading";
+                        to: [to],
 
+                        subject:
+                            subject,
 
-    heading.innerHTML = `
-        <p class="eyebrow">
-            ELIGE TU HORARIO
-        </p>
-
-        <h3>
-            Horarios/actividades
-        </h3>
-    `;
-
-
-    section.appendChild(
-        heading
-    );
-
-
-    /* =====================================================
-       HORARIOS PRINCIPALES
-       ===================================================== */
-
-    const mainSchedules =
-        getMainSchedules();
-
-
-    if (
-        mainSchedules.length > 0
-    ) {
-
-        const mainTitle =
-            document.createElement("p");
-
-
-        mainTitle.className =
-            "schedule-group-title";
-
-
-        mainTitle.textContent =
-            "HORARIOS PRINCIPALES";
-
-
-        section.appendChild(
-            mainTitle
-        );
-
-
-        const mainContainer =
-            document.createElement("div");
-
-
-        mainContainer.className =
-            "schedule-buttons";
-
-
-        mainSchedules.forEach(
-            schedule => {
-
-                mainContainer.appendChild(
-                    createScheduleButton(
-                        schedule
-                    )
-                );
-
+                        html:
+                            html
+                    })
             }
         );
 
+    if (!response.ok) {
 
-        section.appendChild(
-            mainContainer
+        const errorText =
+            await response.text();
+
+        throw new Error(
+            `Resend error ${response.status}: ${errorText}`
         );
-
     }
 
-
-    /* =====================================================
-       OTROS HORARIOS
-       ===================================================== */
-
-    const otherSchedules =
-        getOtherSchedules();
-
-
-    if (
-        otherSchedules.length > 0
-    ) {
-
-        const otherTitle =
-            document.createElement("p");
-
-
-        otherTitle.className =
-            "schedule-group-title other-schedule-title";
-
-
-        otherTitle.textContent =
-            "OTROS HORARIOS";
-
-
-        section.appendChild(
-            otherTitle
-        );
-
-
-        const otherContainer =
-            document.createElement("div");
-
-
-        otherContainer.className =
-            "schedule-buttons";
-
-
-        otherSchedules.forEach(
-            schedule => {
-
-                otherContainer.appendChild(
-                    createScheduleButton(
-                        schedule
-                    )
-                );
-
-            }
-        );
-
-
-        section.appendChild(
-            otherContainer
-        );
-
-    }
-
-
-    /* =====================================================
-       ACTIVIDADES SIN HORARIO
-       ===================================================== */
-
-    const classesWithoutSchedule =
-        getClassesWithoutSchedule();
-
-
-    if (
-        classesWithoutSchedule.length > 0
-    ) {
-
-        const noScheduleTitle =
-            document.createElement("p");
-
-
-        noScheduleTitle.className =
-            "schedule-group-title no-schedule-title";
-
-
-        noScheduleTitle.textContent =
-            "INFORMACIÓN / ACTIVIDADES SIN HORARIO";
-
-
-        section.appendChild(
-            noScheduleTitle
-        );
-
-
-        const noScheduleContainer =
-            document.createElement("div");
-
-
-        noScheduleContainer.className =
-            "schedule-buttons";
-
-
-        noScheduleContainer.appendChild(
-            createNoScheduleButton(
-                classesWithoutSchedule
-            )
-        );
-
-
-        section.appendChild(
-            noScheduleContainer
-        );
-
-    }
-
+    return response.json();
 }
 
+// ======================================================
+// FORMATEAR FECHA
+// ======================================================
 
-/* =========================================================
-   RENDERIZAR CLASES DENTRO DEL HORARIO
-   ========================================================= */
-
-function renderClassesIntoContainer(
-    classes,
-    container,
-    selectedLabel
+function formatSpanishDate(
+    dateString
 ) {
 
-    /* =====================================================
-       CABECERA
-       ===================================================== */
-
-    const heading =
-        document.createElement("div");
-
-
-    heading.className =
-        "selected-schedule-heading";
-
-
-    heading.innerHTML = `
-        <div>
-
-            <p class="eyebrow">
-                ${
-                    selectedSchedule ===
-                    "__NO_SCHEDULE__"
-                        ? "ACTIVIDADES"
-                        : "HORARIO SELECCIONADO"
-                }
-            </p>
-
-            <h2>
-                ${selectedLabel || ""}
-            </h2>
-
-        </div>
-    `;
-
-
-    container.appendChild(
-        heading
-    );
-
-
-    /* =====================================================
-       NO HAY CLASES
-       ===================================================== */
-
-    if (
-        classes.length === 0
-    ) {
-
-        const empty =
-            document.createElement("div");
-
-
-        empty.className =
-            "schedule-empty";
-
-
-        empty.innerHTML = `
-            <p class="eyebrow">
-                SIN CLASES
-            </p>
-
-            <h3>
-                No hay clases en este horario.
-            </h3>
-
-            <p>
-                Prueba seleccionando otra franja horaria.
-            </p>
-        `;
-
-
-        container.appendChild(
-            empty
+    const date =
+        new Date(
+            `${dateString}T00:00:00`
         );
 
-
-        return;
-
-    }
-
-
-    /* =====================================================
-       CONTENEDOR DE TARJETAS
-       ===================================================== */
-
-    const cards =
-        document.createElement("div");
-
-
-    cards.className =
-        "class-grid-inner";
-
-
-    /* =====================================================
-       TARJETAS
-       ===================================================== */
-
-    classes.forEach(
-        classItem => {
-
-            /*
-             * Si capacity es un número positivo,
-             * la clase tiene plazas limitadas.
-             *
-             * Si está vacío o contiene un texto como
-             * "PARA LOS ALLÍ PRESENTES",
-             * se considera ilimitada.
-             */
-
-            const hasCapacity =
-                classItem.capacity !== null &&
-                classItem.capacity !== undefined &&
-                String(
-                    classItem.capacity
-                ).trim() !== "" &&
-                Number.isFinite(
-                    Number(
-                        classItem.capacity
-                    )
-                ) &&
-                Number(
-                    classItem.capacity
-                ) > 0;
-
-
-            const placesLeft =
-                hasCapacity
-                    ? Number(
-                        classItem.capacity
-                    ) -
-                    Number(
-                        classItem.bookedCount || 0
-                    )
-                    : null;
-
-
-            const isFull =
-                hasCapacity &&
-                placesLeft <= 0;
-
-
-            /* =================================================
-               TARJETA
-               ================================================= */
-
-            const card =
-                document.createElement(
-                    "article"
-                );
-
-
-            card.className =
-                "class-card";
-
-
-            /* =================================================
-               HORA
-               ================================================= */
-
-            const displayTime =
-                normalizeTime(
-                    classItem.time
-                );
-
-
-            /* =================================================
-               HTML DE LA TARJETA
-               ================================================= */
-
-            card.innerHTML = `
-
-                <img
-                    src="${
-                        classItem.imageUrl || ""
-                    }"
-                    alt="${
-                        classItem.title ||
-                        "Clase"
-                    }"
-                >
-
-
-                <div class="card-body">
-
-
-                    <div class="card-top">
-
-                        <span>
-                            ${
-                                classItem.duration
-                                    ? `${classItem.duration} MIN`
-                                    : ""
-                            }
-                        </span>
-
-
-                        <span
-                            class="availability ${
-                                isFull
-                                    ? "full"
-                                    : ""
-                            }"
-                        >
-                            ${
-                                isFull
-                                    ? "Clase completa"
-                                    : hasCapacity
-                                        ? `${placesLeft} plazas`
-                                        : "Plazas disponibles"
-                            }
-                        </span>
-
-                    </div>
-
-
-                    <h3>
-                        ${
-                            classItem.title ||
-                            ""
-                        }
-                    </h3>
-
-
-                    <p>
-
-                        ${
-                            classItem.trainer ||
-                            ""
-                        }
-
-                        ${
-                            classItem.trainer &&
-                            classItem.date
-                                ? " · "
-                                : ""
-                        }
-
-                        ${
-                            classItem.date
-                                ? formatDate(
-                                    classItem.date
-                                )
-                                : ""
-                        }
-
-                        ${
-                            displayTime
-                                ? " · "
-                                : ""
-                        }
-
-                        ${
-                            displayTime ||
-                            ""
-                        }
-
-                    </p>
-
-
-                    ${
-                        classItem.description
-                            ? `
-                                <p class="description">
-                                    ${classItem.description}
-                                </p>
-                            `
-                            : ""
-                    }
-
-
-                    ${
-                        isFull
-
-                            ? `
-                                <button
-                                    type="button"
-                                    class="reserve"
-                                    disabled
-                                >
-                                    Clase completa
-                                </button>
-                            `
-
-                            : `
-
-                                <a
-                                    class="reserve"
-                                    href="/reservar/${encodeURIComponent(
-                                        classItem.id
-                                    )}"
-                                >
-
-                                    Reservar plaza
-
-                                    <b>
-                                        →
-                                    </b>
-
-                                </a>
-
-                            `
-                    }
-
-
-                </div>
-
-            `;
-
-
-            cards.appendChild(
-                card
-            );
-
+    return date.toLocaleDateString(
+        "es-ES",
+        {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
         }
     );
-
-
-    container.appendChild(
-        cards
-    );
-
 }
 
+// ======================================================
+// HTML DE LOS EMAILS
+// ======================================================
 
-/* =========================================================
-   FORMATEAR FECHA
-   =========================================================
+function createBookingEmailHtml({
+    name,
+    classData,
+    type,
+    classId,
+    entryNumber,
+    email
+}) {
 
-   Convierte:
+    const isCancellation =
+        type === "cancelled";
 
-   2026-10-03
+    const cancellationUrl =
+        `https://pilas-fitness.onrender.com/cancelar` +
+        `?classId=${encodeURIComponent(classId)}` +
+        `&entryNumber=${encodeURIComponent(entryNumber)}` +
+        `&email=${encodeURIComponent(email)}`;
 
-   en:
+    const formattedDate =
+        formatSpanishDate(
+            classData.date
+        );
 
-   03 de octubre de 2026
-   ========================================================= */
+    const eyebrow =
+        isCancellation
+            ? "RESERVA CANCELADA"
+            : "RESERVA CONFIRMADA";
 
-function formatDate(
-    value
-) {
+    const title =
+        isCancellation
+            ? "Tu reserva ha<br>quedado cancelada"
+            : "¡Tu plaza está<br>reservada!";
 
-    if (!value) {
+    const message =
+        isCancellation
+            ? `Hola ${name}, tu reserva para esta clase ha sido cancelada correctamente.`
+            : `Hola ${name}, tu reserva se ha realizado correctamente. ¡Te esperamos en clase!`;
 
-        return "Fecha no disponible";
-
-    }
-
-
-    const text =
-        String(value).trim();
-
-
-    let day;
-    let month;
-    let year;
-
-
-    /* =====================================================
-       FORMATO:
-
-       2026-10-03
-       ===================================================== */
-
-    if (
-        /^\d{4}-\d{2}-\d{2}$/.test(
-            text
-        )
-    ) {
-
-        [
-            year,
-            month,
-            day
-        ] = text.split("-");
-
-    }
-
-
-    /* =====================================================
-       FORMATO:
-
-       03/10/2026
-       ===================================================== */
-
-    else if (
-        /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
-            text
-        )
-    ) {
-
-        [
-            day,
-            month,
-            year
-        ] = text.split("/");
-
-    }
-
-
-    /* =====================================================
-       OTROS FORMATOS
-       ===================================================== */
-
-    else {
-
-        const date =
-            new Date(text);
-
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-
-            return "Fecha no disponible";
-
-        }
-
-
-        day =
-            String(
-                date.getDate()
-            ).padStart(
-                2,
-                "0"
-            );
-
-
-        month =
-            String(
-                date.getMonth() + 1
-            ).padStart(
-                2,
-                "0"
-            );
-
-
-        year =
-            String(
-                date.getFullYear()
-            );
-
-    }
-
-
-    const months = [
-
-        "enero",
-        "febrero",
-        "marzo",
-        "abril",
-        "mayo",
-        "junio",
-        "julio",
-        "agosto",
-        "septiembre",
-        "octubre",
-        "noviembre",
-        "diciembre"
-
-    ];
-
-
-    const monthIndex =
-        Number(month) - 1;
-
-
-    /*
-     * Si por algún motivo el mes no es válido,
-     * evitamos mostrar "undefined".
-     */
-
-    if (
-        monthIndex < 0 ||
-        monthIndex > 11
-    ) {
-
-        return `${day}/${month}/${year}`;
-
-    }
-
+    const footerMessage =
+        isCancellation
+            ? "La plaza queda disponible nuevamente para otro usuario."
+            : "Si finalmente no puedes asistir, recuerda cancelar tu reserva desde tu área de miembro.";
 
     return `
-        ${day}
-        de
-        ${months[monthIndex]}
-        de
-        ${year}
-    `.replace(
-        /\s+/g,
-        " "
-    ).trim();
 
+<!doctype html>
+
+<html lang="es">
+
+<head>
+
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        ${
+            isCancellation
+                ? "Reserva cancelada"
+                : "Reserva confirmada"
+        } · REVITALÍZATE
+    </title>
+
+</head>
+
+<body style="
+    margin:0;
+    padding:0;
+    background:#eef8f1;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#083b2a;
+">
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+        background:#eef8f1;
+        padding:45px 15px;
+    "
+>
+
+<tr>
+
+<td align="center">
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+        max-width:580px;
+        background:#ffffff;
+        border-radius:20px;
+        overflow:hidden;
+        box-shadow:0 8px 30px rgba(8,59,42,0.08);
+    "
+>
+
+<!-- CABECERA -->
+
+<tr>
+
+<td
+    align="center"
+    style="
+        background:#087542;
+        padding:32px 30px;
+    "
+>
+
+<table
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+>
+
+<tr>
+
+<td
+    align="center"
+    valign="middle"
+    style="
+        width:42px;
+        height:42px;
+        background:#8fdb4d;
+        border-radius:50%;
+        color:#083b2a;
+        font-size:22px;
+        font-weight:800;
+        line-height:42px;
+    "
+>
+    F
+</td>
+
+<td style="
+    padding-left:12px;
+    color:#ffffff;
+    font-size:16px;
+    font-weight:800;
+    letter-spacing:3px;
+">
+    REVITALÍZATE
+</td>
+
+</tr>
+
+</table>
+
+</td>
+
+</tr>
+
+<!-- CONTENIDO -->
+
+<tr>
+
+<td style="
+    padding:48px 42px 42px;
+">
+
+<p style="
+    margin:0 0 14px;
+    color:#39705a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+">
+
+    ${eyebrow}
+
+</p>
+
+<h1 style="
+    margin:0 0 22px;
+    color:#083b2a;
+    font-size:34px;
+    line-height:1.12;
+    font-weight:800;
+    letter-spacing:-1.2px;
+">
+
+    ${title}
+
+</h1>
+
+<p style="
+    margin:0 0 28px;
+    color:#39705a;
+    font-size:15px;
+    line-height:1.7;
+">
+
+    ${message}
+
+</p>
+
+<!-- DATOS DE LA CLASE -->
+
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="margin-bottom:28px;"
+>
+
+<tr>
+
+<td style="
+    background:#eef8f1;
+    border-left:4px solid #8fdb4d;
+    border-radius:8px;
+    padding:18px;
+">
+
+<p style="
+    margin:0 0 8px;
+    color:#39705a;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+">
+
+    CLASE
+
+</p>
+
+<p style="
+    margin:0 0 14px;
+    color:#083b2a;
+    font-size:20px;
+    font-weight:800;
+">
+
+    ${classData.title}
+
+</p>
+
+<p style="
+    margin:0 0 6px;
+    color:#39705a;
+    font-size:13px;
+">
+
+    📅 ${formattedDate}
+
+</p>
+
+<p style="
+    margin:0 0 6px;
+    color:#39705a;
+    font-size:13px;
+">
+
+    🕐 ${classData.time}
+
+</p>
+
+<p style="
+    margin:0;
+    color:#39705a;
+    font-size:13px;
+">
+
+    👤 ${classData.trainer}
+
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+<p style="
+    margin:0 0 22px;
+    color:#6c8b7b;
+    font-size:12px;
+    line-height:1.6;
+    text-align:center;
+">
+
+    ${footerMessage}
+
+</p>
+
+${
+    !isCancellation
+        ? `
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="margin-top:10px;"
+>
+
+<tr>
+
+<td align="center">
+
+<a
+    href="${cancellationUrl}"
+    style="
+        display:inline-block;
+        background:#083b2a;
+        color:#ffffff;
+        text-decoration:none;
+        font-size:13px;
+        font-weight:800;
+        letter-spacing:1px;
+        padding:15px 26px;
+        border-radius:10px;
+    "
+>
+    CANCELAR MI RESERVA
+</a>
+
+</td>
+
+</tr>
+
+</table>
+<p>
+`
+        : ""
+}    margin:0;
+    color:#6c8b7b;
+    font-size:12px;
+    line-height:1.6;
+    text-align:center;
+">
+
+</p>
+
+</td>
+
+</tr>
+
+<!-- FOOTER -->
+
+<tr>
+
+<td
+    align="center"
+    style="
+        background:#f7fcf8;
+        border-top:1px solid #e5f0e8;
+        padding:24px 30px;
+    "
+>
+
+<p style="
+    margin:0 0 7px;
+    color:#083b2a;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:2px;
+">
+
+    REVITALÍZATE
+
+</p>
+
+<p style="
+    margin:0;
+    color:#6c8b7b;
+    font-size:10px;
+">
+
+    Mueve el cuerpo. Cambia el día.
+
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+<p style="
+    margin:20px 10px 0;
+    color:#7b9688;
+    font-size:10px;
+    text-align:center;
+">
+
+    Este correo se ha enviado automáticamente.
+
+</p>
+
+</td>
+
+</tr>
+
+</table>
+
+</body>
+
+</html>
+
+`;
 }
 
+// ======================================================
+// EMAIL DE CONFIRMACIÓN
+// ======================================================
 
-/* =========================================================
-   INICIAR
-   ========================================================= */
+async function sendBookingConfirmationEmail(
+    user,
+    classData
+) {
 
-loadClasses();
+    const html =
+        createBookingEmailHtml({
+            name:
+                user.name,
+
+            classData:
+                classData,
+
+            type:
+                "confirmed",
+
+            classId:
+                user.classId,
+
+            entryNumber:
+                user.entryNumber,
+
+            email:
+                user.email
+        });
+
+    await sendResendEmail({
+
+        to:
+            user.email,
+
+        subject:
+            `Reserva confirmada · ${classData.title}`,
+
+        html:
+            html
+    });
+}
+
+// ======================================================
+// EMAIL DE CANCELACIÓN
+// ======================================================
+
+async function sendBookingCancellationEmail(
+    user,
+    classData
+) {
+
+    const html =
+        createBookingEmailHtml({
+            name:
+                user.name,
+
+            classData:
+                classData,
+
+            type:
+                "cancelled"
+        });
+
+    await sendResendEmail({
+
+        to:
+            user.email,
+
+        subject:
+            `Reserva cancelada · ${classData.title}`,
+
+        html:
+            html
+    });
+}
+
+// ======================================================
+// RESERVAR CLASE
+// ======================================================
+
+exports.reserveClass =
+    onCall(
+        {
+            secrets: [
+                resendApiKey,
+                googleServiceAccountJson
+            ]
+        },
+
+        async (request) => {
+
+            const {
+                classId,
+                name,
+                phone,
+                email,
+                birthDate,
+                entryNumber
+            } = request.data || {};
+
+            // -----------------------------------------
+            // 1. VALIDAR CLASS ID
+            // -----------------------------------------
+
+            if (
+                classId === undefined ||
+                classId === null ||
+                String(classId).trim() === ""
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "La clase seleccionada no es válida."
+                );
+            }
+
+            const normalizedClassId =
+                String(classId).trim();
+
+            // -----------------------------------------
+            // 2. VALIDAR NOMBRE
+            // -----------------------------------------
+
+            if (
+                !name ||
+                typeof name !== "string" ||
+                name.trim().length < 2
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Introduce un nombre válido."
+                );
+            }
+
+            // -----------------------------------------
+            // 3. VALIDAR TELÉFONO
+            // -----------------------------------------
+
+            if (
+                !phone ||
+                typeof phone !== "string" ||
+                phone.trim().length < 6
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Introduce un número de teléfono válido."
+                );
+            }
+
+            // -----------------------------------------
+            // 4. VALIDAR EMAIL
+            // -----------------------------------------
+
+            if (
+                !email ||
+                typeof email !== "string"
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Introduce un correo electrónico válido."
+                );
+            }
+
+            const normalizedEmail =
+                email.trim().toLowerCase();
+
+            const emailRegex =
+                /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (
+                !emailRegex.test(
+                    normalizedEmail
+                )
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Introduce un correo electrónico válido."
+                );
+            }
+
+            // -----------------------------------------
+            // 5. VALIDAR FECHA DE NACIMIENTO
+            // -----------------------------------------
+
+            if (
+                !birthDate ||
+                typeof birthDate !== "string"
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Introduce tu fecha de nacimiento."
+                );
+            }
+
+            const parsedBirthDate =
+                new Date(
+                    `${birthDate}T00:00:00`
+                );
+
+            if (
+                Number.isNaN(
+                    parsedBirthDate.getTime()
+                )
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "La fecha de nacimiento no es válida."
+                );
+            }
+
+            // -----------------------------------------
+            // 6. VALIDAR NÚMERO DE ENTRADA
+            // -----------------------------------------
+
+            if (
+                entryNumber === undefined ||
+                entryNumber === null ||
+                String(entryNumber).trim() === ""
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Debes indicar tu número de entrada."
+                );
+            }
+
+            const normalizedEntryNumber =
+                String(entryNumber).trim();
+
+            const entryNumberValue =
+                Number(
+                    normalizedEntryNumber
+                );
+
+            /*
+             * 0 = cliente de prueba
+             * 1-1700 = clientes reales
+             */
+
+            if (
+                !Number.isInteger(
+                    entryNumberValue
+                ) ||
+                entryNumberValue < 0 ||
+                entryNumberValue > 1700
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "El número de entrada debe estar entre 0 y 1700."
+                );
+            }
+
+            const normalizedPhone =
+                phone.trim();
+
+            const normalizedName =
+                name.trim();
+
+            // -----------------------------------------
+            // 7. OBTENER CLASE
+            // -----------------------------------------
+
+            const classRef =
+                db
+                    
+                .collection("classes")
+                    .orderBy("", "asc")
+                    .doc(normalizedClassId);
+
+            const classSnapshot =
+                await classRef.get();
+
+            if (!classSnapshot.exists) {
+
+                throw new HttpsError(
+                    "not-found",
+                    "La clase no existe."
+                );
+            }
+
+            const classData =
+                classSnapshot.data();
+
+            if (
+                classData.activa === false
+            ) {
+
+                throw new HttpsError(
+                    "failed-precondition",
+                    "Esta clase ya no está disponible."
+                );
+            }
+
+            // -----------------------------------------
+            // 8. COMPROBAR CAPACIDAD
+            // -----------------------------------------
+
+            const capacity =
+                classData.capacity === null ||
+                classData.capacity === undefined ||
+                classData.capacity === ""
+                    ? null
+                    : Number(classData.capacity);
+
+            // -----------------------------------------
+            // 9. BUSCAR RESERVAS DEL NÚMERO
+            // -----------------------------------------
+
+            const bookingsSnapshot =
+                await db
+                    .collection("bookings")
+                    .where(
+                        "entryNumber",
+                        "==",
+                        entryNumberValue
+                    )
+                    .where(
+                        "status",
+                        "==",
+                        "active"
+                    )
+                    .get();
+
+            // -----------------------------------------
+            // 10. COMPROBAR EMAIL DEL NÚMERO
+            // -----------------------------------------
+
+            if (
+                bookingsSnapshot.size > 0
+            ) {
+
+                const firstBooking =
+                    bookingsSnapshot.docs[0]
+                        .data();
+
+                if (
+                    firstBooking.email !==
+                    normalizedEmail
+                ) {
+
+                    throw new HttpsError(
+                        "already-exists",
+                        "Este número de entrada ya está asociado a otro correo electrónico."
+                    );
+                }
+            }
+
+            // -----------------------------------------
+            // 11. BUSCAR RESERVAS DEL EMAIL
+            // -----------------------------------------
+
+            const emailBookingsSnapshot =
+                await db
+                    .collection("bookings")
+                    .where(
+                        "email",
+                        "==",
+                        normalizedEmail
+                    )
+                    .where(
+                        "status",
+                        "==",
+                        "active"
+                    )
+                    .get();
+
+            // -----------------------------------------
+            // 12. COMPROBAR QUE EL EMAIL NO USA
+            //     OTRO NÚMERO DE ENTRADA
+            // -----------------------------------------
+
+            if (
+                emailBookingsSnapshot.size > 0
+            ) {
+
+                const firstEmailBooking =
+                    emailBookingsSnapshot.docs[0]
+                        .data();
+
+                if (
+                    Number(
+                        firstEmailBooking.entryNumber
+                    ) !==
+                    entryNumberValue
+                ) {
+
+                    throw new HttpsError(
+                        "already-exists",
+                        "Este correo electrónico ya está asociado a otro número de entrada."
+                    );
+                }
+            }
+
+            // -----------------------------------------
+            // 13. MÁXIMO 3 RESERVAS ACTIVAS
+            // -----------------------------------------
+
+            if (
+                emailBookingsSnapshot.size >= 3
+            ) {
+
+                throw new HttpsError(
+                    "resource-exhausted",
+                    "Ya tienes el máximo de 3 reservas activas."
+                );
+            }
+
+            // -----------------------------------------
+            // 14. COMPROBAR MISMO HORARIO
+            // -----------------------------------------
+
+            const sameSchedule =
+                emailBookingsSnapshot.docs
+                    .some(doc => {
+
+                        const booking =
+                            doc.data();
+
+                        return (
+                            booking.classDate ===
+                                classData.date &&
+
+                            booking.classTime ===
+                                classData.time
+                        );
+                    });
+
+            if (sameSchedule) {
+
+                throw new HttpsError(
+                    "already-exists",
+                    "Ya tienes una reserva en este horario."
+                );
+            }
+
+            // -----------------------------------------
+            // 15. COMPROBAR PLAZAS ACTUALES
+            // -----------------------------------------
+
+            const placesSnapshot =
+                await classRef.get();
+
+            const currentClassData =
+                placesSnapshot.data();
+
+            const bookedCount =
+                Number(
+                    currentClassData.bookedCount || 0
+                );
+            console.log("DEBUG RESERVA", {
+                classId: normalizedClassId,
+                capacity,
+                bookedCount,
+                classTitle: classData.title
+            });
+            if (
+                capacity !== null &&
+                capacity !== undefined &&
+                bookedCount >= capacity
+            ) {
+                throw new HttpsError(
+                    "resource-exhausted",
+                    "Lo sentimos, la clase está completa."
+                );
+            }
+
+
+            // -----------------------------------------
+            // 16. CREAR RESERVA
+            // -----------------------------------------
+
+            const bookingId =
+                crypto.randomUUID();
+
+            const bookingRef =
+                db
+                    .collection("bookings")
+                    .doc(bookingId);
+
+            const booking = {
+
+                bookingId,
+
+                normalizedClassId,
+
+                entryNumber:
+                    entryNumberValue,
+
+                name:
+                    normalizedName,
+
+                phone:
+                    normalizedPhone,
+
+                email:
+                    normalizedEmail,
+
+                birthDate,
+
+                classDate:
+                    classData.date,
+
+                classTime:
+                    classData.time,
+
+                status:
+                    "active",
+
+                createdAt:
+                    FieldValue.serverTimestamp()
+            };
+
+            // -----------------------------------------
+            // 17. TRANSACCIÓN
+            // -----------------------------------------
+
+            await db.runTransaction(
+                async transaction => {
+
+                    const classTransactionSnapshot =
+                        await transaction.get(
+                            classRef
+                        );
+
+                    if (
+                        !classTransactionSnapshot.exists
+                    ) {
+
+                        throw new HttpsError(
+                            "not-found",
+                            "La clase no existe."
+                        );
+                    }
+
+                    const transactionClassData =
+                        classTransactionSnapshot.data();
+
+                    if (
+                        transactionClassData.activa === false
+                    ) {
+
+                        throw new HttpsError(
+                            "failed-precondition",
+                            "Esta clase ya no está disponible."
+                        );
+                    }
+
+                    const transactionCapacity =
+                        transactionClassData.capacity === null ||
+                        transactionClassData.capacity === undefined ||
+                        transactionClassData.capacity === ""
+                            ? null
+                            : Number(
+                                transactionClassData.capacity
+                            );
+
+                    const transactionBookedCount =
+                        Number(
+                            transactionClassData.bookedCount || 0
+                        );
+
+                    /*
+                    * Si capacity es null significa:
+                    *
+                    * - capacidad vacía
+                    * - PARA LOS ALLÍ PRESENTES
+                    * - sin límite de plazas
+                    *
+                    * En esos casos no comprobamos si está llena.
+                    */
+
+                    if (
+                        transactionCapacity !== null &&
+                        transactionBookedCount >= transactionCapacity
+                    ) {
+                        throw new HttpsError(
+                            "resource-exhausted",
+                            "Lo sentimos, la clase está completa."
+                        );
+                    }
+
+                    transaction.set(
+                        bookingRef,
+                        booking
+                    );
+
+                    transaction.update(
+                        classRef,
+                        {
+                            bookedCount:
+                                transactionBookedCount + 1
+                        }
+                    );
+                }
+            );
+
+            // -----------------------------------------
+            // 18. GOOGLE SHEETS
+            // -----------------------------------------
+
+            await registrarReservaEnSheets(
+                booking,
+                classData
+            );
+
+            // -----------------------------------------
+            // 19. EMAIL
+            // -----------------------------------------
+
+            try {
+
+                await sendBookingConfirmationEmail(
+                    {
+                        name:
+                            normalizedName,
+
+                        email:
+                            normalizedEmail,
+
+                        entryNumber:
+                            entryNumberValue,
+
+                        bookingId,
+
+                        classId:
+                            normalizedClassId
+                    },
+                    classData
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "La reserva se creó correctamente, pero no se pudo enviar el email:",
+                    error
+                );
+            }
+
+            // -----------------------------------------
+            // 20. RESPUESTA
+            // -----------------------------------------
+
+            return {
+
+                success:
+                    true,
+
+                message:
+                    "Reserva realizada correctamente.",
+
+                bookingId,
+
+                entryNumber:
+                    entryNumberValue
+            };
+        }
+    );
+
+// ======================================================
+// CANCELAR RESERVA
+// ======================================================
+
+exports.cancelClass =
+    onCall(
+        {
+            secrets: [
+                resendApiKey,
+                googleServiceAccountJson
+            ]
+        },
+
+        async (request) => {
+
+            const {
+                classId,
+                entryNumber,
+                email
+            } = request.data || {};
+
+            // ------------------------------------------
+            // 1. VALIDAR CLASS ID
+            // ------------------------------------------
+
+            if (
+                classId === undefined ||
+                classId === null ||
+                String(classId).trim() === ""
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "La clase seleccionada no es válida."
+                );
+            }
+
+            const normalizedClassId =
+                String(classId).trim();
+
+            // ------------------------------------------
+            // 2. VALIDAR NÚMERO DE ENTRADA
+            // ------------------------------------------
+
+            if (
+                entryNumber === undefined ||
+                entryNumber === null ||
+                String(entryNumber).trim() === ""
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Debes indicar tu número de entrada."
+                );
+            }
+
+            const entryNumberValue =
+                Number(entryNumber);
+
+            /*
+             * 0 = cliente de prueba
+             * 1-1700 = clientes reales
+             */
+
+            if (
+                !Number.isInteger(
+                    entryNumberValue
+                ) ||
+                entryNumberValue < 0 ||
+                entryNumberValue > 1700
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "El número de entrada debe estar entre 0 y 1700."
+                );
+            }
+
+            // ------------------------------------------
+            // 3. VALIDAR EMAIL
+            // ------------------------------------------
+
+            if (
+                !email ||
+                typeof email !== "string"
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "Debes indicar tu correo electrónico."
+                );
+            }
+
+            const normalizedEmail =
+                email
+                    .trim()
+                    .toLowerCase();
+
+            const emailRegex =
+                /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (
+                !emailRegex.test(
+                    normalizedEmail
+                )
+            ) {
+
+                throw new HttpsError(
+                    "invalid-argument",
+                    "El correo electrónico no es válido."
+                );
+            }
+
+            // ------------------------------------------
+            // 4. REFERENCIA A LA CLASE
+            // ------------------------------------------
+
+            const classRef =
+                db
+                    .collection("classes")
+                    .doc(normalizedClassId);
+
+            // ------------------------------------------
+            // 5. BUSCAR RESERVA
+            // ------------------------------------------
+
+            const bookingsSnapshot =
+                await db
+                    .collection("bookings")
+                    .where(
+                        "normalizedClassId",
+                        "==",
+                        normalizedClassId
+                    )
+                    .where(
+                        "entryNumber",
+                        "==",
+                        entryNumberValue
+                    )
+                    .where(
+                        "email",
+                        "==",
+                        normalizedEmail
+                    )
+                    .where(
+                        "status",
+                        "==",
+                        "active"
+                    )
+                    .limit(1)
+                    .get();
+
+            if (
+                bookingsSnapshot.empty
+            ) {
+
+                throw new HttpsError(
+                    "not-found",
+                    "No se ha encontrado una reserva con esos datos."
+                );
+            }
+
+            const bookingDoc =
+                bookingsSnapshot.docs[0];
+
+            const bookingRef =
+                bookingDoc.ref;
+
+            const bookingData =
+                bookingDoc.data();
+
+            let classDataForEmail =
+                null;
+
+            // ------------------------------------------
+            // 6. CANCELAR EN TRANSACCIÓN
+            // ------------------------------------------
+
+            try {
+
+                await db.runTransaction(
+                    async transaction => {
+
+                        const bookingSnapshot =
+                            await transaction.get(
+                                bookingRef
+                            );
+
+                        const classSnapshot =
+                            await transaction.get(
+                                classRef
+                            );
+
+                        if (
+                            !bookingSnapshot.exists
+                        ) {
+
+                            throw new HttpsError(
+                                "not-found",
+                                "La reserva ya no existe."
+                            );
+                        }
+
+                        if (
+                            !classSnapshot.exists
+                        ) {
+
+                            throw new HttpsError(
+                                "not-found",
+                                "La clase ya no existe."
+                            );
+                        }
+
+                        const currentBooking =
+                            bookingSnapshot.data();
+
+                        if (
+                            currentBooking.status !==
+                            "active"
+                        ) {
+
+                            throw new HttpsError(
+                                "not-found",
+                                "Esta reserva ya ha sido cancelada."
+                            );
+                        }
+
+                        const classData =
+                            classSnapshot.data();
+
+                        classDataForEmail = {
+                            ...classData
+                        };
+
+                        const bookedCount =
+                            Number(
+                                classData.bookedCount || 0
+                            );
+
+                        // ----------------------------------
+                        // MARCAR RESERVA COMO CANCELADA
+                        // ----------------------------------
+
+                        transaction.update(
+                            bookingRef,
+                            {
+                                status:
+                                    "cancelled",
+
+                                cancelledAt:
+                                    FieldValue.serverTimestamp()
+                            }
+                        );
+
+                        // ----------------------------------
+                        // LIBERAR PLAZA
+                        // ----------------------------------
+
+                        transaction.update(
+                            classRef,
+                            {
+                                bookedCount:
+                                    Math.max(
+                                        0,
+                                        bookedCount - 1
+                                    )
+                            }
+                        );
+                    }
+                );
+
+                // --------------------------------------
+                // 7. GOOGLE SHEETS
+                // --------------------------------------
+
+                const bookingForSheets = {
+                    ...bookingData,
+
+                    status:
+                        "cancelled"
+                };
+
+                await registrarCancelacionEnSheets(
+                    bookingForSheets,
+                    classDataForEmail
+                );
+
+                // --------------------------------------
+                // 8. EMAIL
+                // --------------------------------------
+
+                try {
+
+                    await sendBookingCancellationEmail(
+                        bookingData,
+                        classDataForEmail
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "La reserva se canceló correctamente, pero no se pudo enviar el email:",
+                        error
+                    );
+                }
+
+                // --------------------------------------
+                // 9. RESPUESTA
+                // --------------------------------------
+
+                return {
+
+                    success:
+                        true,
+
+                    message:
+                        "Reserva cancelada correctamente."
+                };
+
+            } catch (error) {
+
+                if (
+                    error instanceof HttpsError
+                ) {
+                    throw error;
+                }
+
+                console.error(
+                    "Error cancelando reserva:",
+                    error
+                );
+
+                throw new HttpsError(
+                    "internal",
+                    "No se ha podido cancelar la reserva."
+                );
+            }
+        }
+    );
