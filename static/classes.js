@@ -44,15 +44,11 @@ let allClasses = [];
 
 function normalizeTime(value) {
 
-    if (
-        value === undefined ||
-        value === null
-    ) {
+    if (value === undefined || value === null) {
         return "";
     }
 
-    let time =
-        String(value).trim();
+    let time = String(value).trim();
 
     if (!time) {
         return "";
@@ -65,16 +61,10 @@ function normalizeTime(value) {
     );
 
     // Eliminar espacios
-    time = time.replace(
-        /\s/g,
-        ""
-    );
+    time = time.replace(/\s/g, "");
 
     // Normalizar guiones
-    time = time.replace(
-        /[–—]/g,
-        "-"
-    );
+    time = time.replace(/[–—]/g, "-");
 
     return time;
 }
@@ -90,8 +80,7 @@ function parseDate(dateValue) {
         return null;
     }
 
-    const value =
-        String(dateValue).trim();
+    const value = String(dateValue).trim();
 
 
     // --------------------------------------
@@ -123,7 +112,6 @@ function parseDate(dateValue) {
             );
 
 
-        // Comprobar fecha válida
         if (
             date.getFullYear() === year &&
             date.getMonth() === month - 1 &&
@@ -184,22 +172,15 @@ function parseDate(dateValue) {
 // ==========================================
 // FORMATEAR FECHA
 // ==========================================
-//
-// 04/10/2026
-// ↓
-// 4 de octubre de 2026
-// ==========================================
 
 function formatDate(dateValue) {
 
     const date =
         parseDate(dateValue);
 
-
     if (!date) {
         return dateValue || "";
     }
-
 
     return new Intl.DateTimeFormat(
         "es-ES",
@@ -245,15 +226,24 @@ async function loadClasses() {
         // LEER FIRESTORE
         // --------------------------------------
 
-        const classesQuery = query(
-            collection(db, "classes"),
-            orderBy("orden", "asc")
-        );
+        const classesQuery =
+            query(
+                collection(db, "classes"),
+                orderBy("orden", "asc")
+            );
+
 
         const snapshot =
             await getDocs(classesQuery);
 
+
         const classes = [];
+
+
+        console.log(
+            "Clases encontradas en Firestore:",
+            snapshot.size
+        );
 
 
         // ======================================
@@ -270,9 +260,7 @@ async function loadClasses() {
             // NO MOSTRAR DESACTIVADAS
             // ----------------------------------
 
-            if (
-                data.activa === false
-            ) {
+            if (data.activa === false) {
                 return;
             }
 
@@ -295,22 +283,18 @@ async function loadClasses() {
 
 
                 if (
-                    Number.isFinite(
-                        parsedCapacity
-                    ) &&
+                    Number.isFinite(parsedCapacity) &&
                     parsedCapacity > 0
                 ) {
 
                     capacity =
                         parsedCapacity;
-
                 }
-
             }
 
 
             // ----------------------------------
-            // ORDEN DE GOOGLE SHEETS
+            // ORDEN
             // ----------------------------------
 
             let orden =
@@ -328,41 +312,26 @@ async function loadClasses() {
 
 
                 if (
-                    Number.isFinite(
-                        parsedOrden
-                    )
+                    Number.isFinite(parsedOrden)
                 ) {
 
                     orden =
                         parsedOrden;
-
                 }
-
             }
 
 
-            // ==================================
-            // IMPORTANTE
-            // ==================================
-            //
-            // USAMOS doc.id COMO ID.
-            //
-            // Esto es lo que utilizaba tu
-            // código antiguo que funcionaba.
-            //
-            // La reserva espera este ID para
-            // buscar:
-            //
-            // classes/{classId}
-            // ==================================
+            // ----------------------------------
+            // CREAR OBJETO
+            // ----------------------------------
 
             classes.push({
 
-                // ID REAL DEL DOCUMENTO FIRESTORE
-                id: doc.id,
+                id:
+                    String(doc.id).trim(),
 
-                // Guardamos también el document ID
-                firestoreId: doc.id,
+                firestoreId:
+                    String(doc.id).trim(),
 
                 title:
                     String(
@@ -417,7 +386,6 @@ async function loadClasses() {
                     Number(
                         data.bookedCount ?? 0
                     )
-
             });
 
         });
@@ -425,14 +393,6 @@ async function loadClasses() {
 
         // ======================================
         // ORDENAR SEGÚN GOOGLE SHEETS
-        // ======================================
-        //
-        // NO ordenamos por fecha.
-        // NO ordenamos por hora.
-        // NO ordenamos por TIPO.
-        //
-        // Se utiliza exactamente el campo
-        // "orden" que guarda el backend.
         // ======================================
 
         classes.sort(
@@ -443,6 +403,12 @@ async function loadClasses() {
 
         allClasses =
             classes;
+
+
+        console.log(
+            "Clases preparadas para mostrar:",
+            allClasses
+        );
 
 
         // --------------------------------------
@@ -469,26 +435,13 @@ async function loadClasses() {
                     No se han podido cargar las clases.
                 </div>
             `;
-
         }
-
     }
-
 }
+
 
 // ==========================================
 // OBTENER HORARIOS
-// ==========================================
-//
-// ORDEN MANUAL
-//
-// Las clases se agrupan por su hora de inicio.
-//
-// 09:45-10:15  → 09:45
-// 10:30-11:10  → 10:30
-// 10:30-12:00  → 10:30
-// 11:30-12:10  → 11:30
-// 12:30-13:10  → 12:30
 // ==========================================
 
 function getSchedules(classes) {
@@ -500,7 +453,9 @@ function getSchedules(classes) {
         "12:30"
     ];
 
+
     const availableSchedules = [];
+
 
     classes.forEach((classItem) => {
 
@@ -508,23 +463,32 @@ function getSchedules(classes) {
             return;
         }
 
+
         const normalizedTime =
             normalizeTime(classItem.time);
+
 
         if (!normalizedTime) {
             return;
         }
 
+
         const startTime =
             normalizedTime.split("-")[0];
+
 
         if (
             startTime &&
             !availableSchedules.includes(startTime)
         ) {
-            availableSchedules.push(startTime);
+
+            availableSchedules.push(
+                startTime
+            );
         }
+
     });
+
 
     return manualOrder.filter(
         (schedule) =>
@@ -571,9 +535,7 @@ function renderSchedules(classes) {
     // ======================================
 
     const heading =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
 
     heading.className =
@@ -595,13 +557,11 @@ function renderSchedules(classes) {
 
 
     // ======================================
-    // CONTENEDOR DE HORARIOS
+    // CONTENEDOR
     // ======================================
 
     const buttonsContainer =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
 
     buttonsContainer.className =
@@ -616,9 +576,7 @@ function renderSchedules(classes) {
         (schedule) => {
 
             const scheduleItem =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
 
             scheduleItem.className =
@@ -626,13 +584,11 @@ function renderSchedules(classes) {
 
 
             // ----------------------------------
-            // BOTÓN HORARIO
+            // BOTÓN
             // ----------------------------------
 
             const button =
-                document.createElement(
-                    "button"
-                );
+                document.createElement("button");
 
 
             button.type =
@@ -659,9 +615,7 @@ function renderSchedules(classes) {
             // ----------------------------------
 
             const content =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
 
             content.className =
@@ -673,20 +627,29 @@ function renderSchedules(classes) {
             // ----------------------------------
 
             const scheduleClasses =
-                classes.filter((classItem) => {
+                classes.filter(
+                    (classItem) => {
 
-                    if (!classItem.time) {
-                        return false;
+                        if (!classItem.time) {
+                            return false;
+                        }
+
+
+                        const normalizedTime =
+                            normalizeTime(
+                                classItem.time
+                            );
+
+
+                        const startTime =
+                            normalizedTime.split("-")[0];
+
+
+                        return (
+                            startTime === schedule
+                        );
                     }
-
-                    const normalizedTime =
-                        normalizeTime(classItem.time);
-
-                    const startTime =
-                        normalizedTime.split("-")[0];
-
-                    return startTime === schedule;
-                });
+                );
 
 
             renderClassesIntoContainer(
@@ -709,9 +672,7 @@ function renderSchedules(classes) {
                         );
 
 
-                    // --------------------------
-                    // CERRAR OTROS
-                    // --------------------------
+                    // Cerrar otros
 
                     document
                         .querySelectorAll(
@@ -727,9 +688,7 @@ function renderSchedules(classes) {
                                     element.classList.remove(
                                         "open"
                                     );
-
                                 }
-
                             }
                         );
 
@@ -748,16 +707,12 @@ function renderSchedules(classes) {
                                     element.classList.remove(
                                         "selected"
                                     );
-
                                 }
-
                             }
                         );
 
 
-                    // --------------------------
-                    // ABRIR / CERRAR ACTUAL
-                    // --------------------------
+                    // Abrir / cerrar actual
 
                     if (isOpen) {
 
@@ -778,9 +733,7 @@ function renderSchedules(classes) {
                         button.classList.add(
                             "selected"
                         );
-
                     }
-
                 }
             );
 
@@ -817,9 +770,7 @@ function renderSchedules(classes) {
     ) {
 
         const noScheduleWrapper =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
 
         noScheduleWrapper.className =
@@ -827,9 +778,7 @@ function renderSchedules(classes) {
 
 
         const noScheduleTitle =
-            document.createElement(
-                "h3"
-            );
+            document.createElement("h3");
 
 
         noScheduleTitle.textContent =
@@ -842,18 +791,12 @@ function renderSchedules(classes) {
 
 
         const noScheduleGrid =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
 
         noScheduleGrid.className =
             "class-grid-inner";
 
-
-        // ----------------------------------
-        // MISMO ORDEN DEL SHEET
-        // ----------------------------------
 
         classesWithoutTime.forEach(
             (classItem) => {
@@ -876,9 +819,7 @@ function renderSchedules(classes) {
         schedulesSection.appendChild(
             noScheduleWrapper
         );
-
     }
-
 }
 
 
@@ -908,9 +849,7 @@ function renderClassesIntoContainer(
 
 
     const grid =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
 
     grid.className =
@@ -933,7 +872,6 @@ function renderClassesIntoContainer(
     container.appendChild(
         grid
     );
-
 }
 
 
@@ -945,6 +883,7 @@ function createClassCard(classItem) {
 
     const card =
         document.createElement("article");
+
 
     card.className =
         "class-card";
@@ -959,21 +898,28 @@ function createClassCard(classItem) {
         const image =
             document.createElement("img");
 
+
         image.src =
             classItem.imageUrl;
+
 
         image.alt =
             classItem.title ||
             "Actividad";
 
+
         image.loading =
             "lazy";
+
 
         image.onerror = () => {
             image.style.display = "none";
         };
 
-        card.appendChild(image);
+
+        card.appendChild(
+            image
+        );
     }
 
 
@@ -983,6 +929,7 @@ function createClassCard(classItem) {
 
     const body =
         document.createElement("div");
+
 
     body.className =
         "card-body";
@@ -997,13 +944,18 @@ function createClassCard(classItem) {
         const type =
             document.createElement("div");
 
+
         type.className =
             "class-type";
+
 
         type.textContent =
             classItem.tipo;
 
-        body.appendChild(type);
+
+        body.appendChild(
+            type
+        );
     }
 
 
@@ -1014,11 +966,15 @@ function createClassCard(classItem) {
     const title =
         document.createElement("h4");
 
+
     title.textContent =
         classItem.title ||
         "Actividad";
 
-    body.appendChild(title);
+
+    body.appendChild(
+        title
+    );
 
 
     // ======================================
@@ -1030,13 +986,18 @@ function createClassCard(classItem) {
         const trainer =
             document.createElement("div");
 
+
         trainer.className =
             "class-trainer";
+
 
         trainer.textContent =
             classItem.trainer;
 
-        body.appendChild(trainer);
+
+        body.appendChild(
+            trainer
+        );
     }
 
 
@@ -1049,13 +1010,20 @@ function createClassCard(classItem) {
         const date =
             document.createElement("div");
 
+
         date.className =
             "class-date";
 
-        date.textContent =
-            formatDate(classItem.date);
 
-        body.appendChild(date);
+        date.textContent =
+            formatDate(
+                classItem.date
+            );
+
+
+        body.appendChild(
+            date
+        );
     }
 
 
@@ -1068,13 +1036,18 @@ function createClassCard(classItem) {
         const description =
             document.createElement("div");
 
+
         description.className =
             "class-description";
+
 
         description.textContent =
             classItem.description;
 
-        body.appendChild(description);
+
+        body.appendChild(
+            description
+        );
     }
 
 
@@ -1085,6 +1058,7 @@ function createClassCard(classItem) {
     const capacity =
         document.createElement("div");
 
+
     capacity.className =
         "availability";
 
@@ -1092,12 +1066,16 @@ function createClassCard(classItem) {
     const numericCapacity =
         Number(classItem.capacity);
 
+
     const hasLimitedCapacity =
         Number.isFinite(numericCapacity) &&
         numericCapacity > 0;
 
+
     const bookedCount =
-        Number(classItem.bookedCount || 0);
+        Number(
+            classItem.bookedCount || 0
+        );
 
 
     let isFull = false;
@@ -1107,7 +1085,8 @@ function createClassCard(classItem) {
 
         const placesLeft =
             Math.max(
-                numericCapacity - bookedCount,
+                numericCapacity -
+                bookedCount,
                 0
             );
 
@@ -1116,10 +1095,14 @@ function createClassCard(classItem) {
 
             isFull = true;
 
+
             capacity.textContent =
                 "Clase completa";
 
-            capacity.classList.add("full");
+
+            capacity.classList.add(
+                "full"
+            );
 
         } else {
 
@@ -1138,7 +1121,9 @@ function createClassCard(classItem) {
     }
 
 
-    body.appendChild(capacity);
+    body.appendChild(
+        capacity
+    );
 
 
     // ======================================
@@ -1147,6 +1132,7 @@ function createClassCard(classItem) {
 
     const actions =
         document.createElement("div");
+
 
     actions.className =
         "card-actions";
@@ -1157,37 +1143,48 @@ function createClassCard(classItem) {
         const button =
             document.createElement("button");
 
+
         button.type =
             "button";
+
 
         button.className =
             "reserve";
 
+
         button.disabled =
             true;
+
 
         button.textContent =
             "Clase completa";
 
-        actions.appendChild(button);
+
+        actions.appendChild(
+            button
+        );
 
     } else {
 
         const reserveLink =
             document.createElement("a");
 
+
         reserveLink.className =
             "reserve";
+
 
         reserveLink.href =
             `/reservar/${encodeURIComponent(
                 classItem.id
             )}`;
 
+
         reserveLink.innerHTML = `
             Reservar plaza
             <b>→</b>
         `;
+
 
         actions.appendChild(
             reserveLink
@@ -1195,79 +1192,17 @@ function createClassCard(classItem) {
     }
 
 
-    body.appendChild(actions);
+    body.appendChild(
+        actions
+    );
 
-    card.appendChild(body);
+
+    card.appendChild(
+        body
+    );
 
 
     return card;
-}
-
-
-// ==========================================
-// IR A LA RESERVA
-// ==========================================
-//
-// IMPORTANTE:
-//
-// La página antigua funcionaba con:
-//
-// /reservar/ID
-//
-// Por eso usamos el ID REAL del documento
-// de Firestore.
-//
-// Ejemplo:
-//
-// /reservar/abc123
-// ==========================================
-
-function goToReservation(classItem) {
-
-    try {
-
-        const classId =
-            String(
-                classItem.id
-            ).trim();
-
-
-        if (!classId) {
-
-            console.error(
-                "La clase no tiene ID de Firestore:",
-                classItem
-            );
-
-            return;
-        }
-
-
-        const url =
-            `/reservar/${encodeURIComponent(
-                classId
-            )}`;
-
-
-        console.log(
-            "Abriendo página de reserva:",
-            url
-        );
-
-
-        window.location.href =
-            url;
-
-
-    } catch (error) {
-
-        console.error(
-            "Error al abrir la reserva:",
-            error
-        );
-
-    }
-
 }
 
 
@@ -1279,7 +1214,10 @@ document.addEventListener(
     "DOMContentLoaded",
     () => {
 
-        loadClasses();
+        console.log(
+            "classes.js iniciado"
+        );
 
+        loadClasses();
     }
 );
