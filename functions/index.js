@@ -125,20 +125,18 @@ async function asegurarPestanaClases(sheets) {
 // ======================================================
 
 async function obtenerClasesDesdeSheets() {
-    const sheets =
-        obtenerClienteSheets();
+
+    const sheets = obtenerClienteSheets();
 
     await asegurarPestanaClases(sheets);
 
-    const response =
-        await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${CLASES_SHEET}!A:K`,
-            valueRenderOption: "FORMATTED_VALUE"
-        });
+    const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${CLASES_SHEET}!A:K`,
+        valueRenderOption: "FORMATTED_VALUE"
+    });
 
-    const rows =
-        response.data.values || [];
+    const rows = response.data.values || [];
 
     if (rows.length <= 1) {
         return [];
@@ -146,43 +144,42 @@ async function obtenerClasesDesdeSheets() {
 
     const classes = [];
 
-    for (
-        let i = 1;
-        i < rows.length;
-        i++
-    ) {
-        const row =
-            rows[i] || [];
+    for (let i = 1; i < rows.length; i++) {
 
-        const id =
-            String(row[0] || "").trim();
+        const row = rows[i] || [];
+
+        // A = id
+        const id = String(row[0] || "").trim();
 
         if (!id) {
             continue;
         }
 
-        const title =
-            String(row[1] || "").trim();
+        // B = title
+        const title = String(row[1] || "").trim();
 
-        const trainer =
-            String(row[2] || "").trim();
+        // C = trainer
+        const trainer = String(row[2] || "").trim();
 
-        const date =
-            String(row[3] || "").trim();
+        // D = date
+        const date = String(row[3] || "").trim();
 
-        const time =
-            String(row[4] || "").trim();
+        // E = time
+        const time = String(row[4] || "").trim();
 
-        const duration =
-            Number(row[5] || 0);
+        // F = duration
+        const duration = Number(row[5] || 0);
 
+        // G = capacity
         const capacityRaw =
             String(row[6] ?? "").trim();
 
         let capacity = null;
 
         if (capacityRaw !== "") {
-            const parsedCapacity = Number(capacityRaw);
+
+            const parsedCapacity =
+                Number(capacityRaw);
 
             if (
                 Number.isFinite(parsedCapacity) &&
@@ -192,27 +189,19 @@ async function obtenerClasesDesdeSheets() {
             }
         }
 
+        // H = description
         const description =
             String(row[7] || "").trim();
 
+        // I = imageUrl
         const imageUrl =
             String(row[8] || "").trim();
 
+        // J = activa
         const activaValue =
             String(row[9] ?? "")
                 .trim()
                 .toLowerCase();
-        const tipo = String(row[10] || "").trim().toUpperCase();
-        /*
-         * Si la celda está vacía, la consideramos activa.
-         *
-         * También aceptamos:
-         * TRUE
-         * true
-         * sí
-         * si
-         * 1
-         */
 
         const activa =
             activaValue === "" ||
@@ -220,6 +209,12 @@ async function obtenerClasesDesdeSheets() {
             activaValue === "sí" ||
             activaValue === "si" ||
             activaValue === "1";
+
+        // K = tipo
+        const tipo =
+            String(row[10] || "")
+                .trim()
+                .toUpperCase();
 
         classes.push({
             id,
@@ -233,9 +228,61 @@ async function obtenerClasesDesdeSheets() {
             imageUrl,
             activa,
             tipo,
-            orden: i
+
+            // Guardamos temporalmente
+            // la posición original del Sheet
+            ordenOriginal: i
         });
     }
+
+
+    // ==================================================
+    // ORDENAR POR TIPO
+    // ==================================================
+    //
+    // DEPORTIVO primero
+    // CLÍNICO después
+    //
+    // Dentro de cada tipo se conserva
+    // el orden original de Google Sheets.
+    // ==================================================
+
+    const tipoOrder = {
+        "DEPORTIVO": 1,
+        "CLÍNICO": 2
+    };
+
+    classes.sort((a, b) => {
+
+        const tipoA =
+            tipoOrder[a.tipo] ?? 99;
+
+        const tipoB =
+            tipoOrder[b.tipo] ?? 99;
+
+        // Primero por tipo
+        if (tipoA !== tipoB) {
+            return tipoA - tipoB;
+        }
+
+        // Si tienen el mismo tipo,
+        // mantenemos orden del Sheet
+        return a.ordenOriginal - b.ordenOriginal;
+    });
+
+
+    // ==================================================
+    // CREAR NUEVO ORDEN
+    // ==================================================
+
+    classes.forEach((classData, index) => {
+
+        classData.orden = index + 1;
+
+        // Ya no necesitamos este campo
+        delete classData.ordenOriginal;
+    });
+
 
     return classes;
 }
@@ -350,6 +397,12 @@ async function sincronizarClasesConFirestore() {
 
                 activa:
                     classData.activa,
+                
+                tipo: 
+                    classData.tipo,
+
+                orden: 
+                    classData.orden,
 
                 bookedCount:
                     bookedCount
@@ -1347,7 +1400,6 @@ exports.reserveClass =
 
             const classRef =
                 db
-                .orderBy("id", "asc")
                 .collection("classes")
                     .doc(normalizedClassId);
                     
