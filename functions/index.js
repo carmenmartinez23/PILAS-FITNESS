@@ -1588,20 +1588,33 @@ exports.reserveClass =
                     }
 
                     const transactionCapacity =
-                        Number(
-                            transactionClassData.capacity || 0
-                        );
+                        transactionClassData.capacity === null ||
+                        transactionClassData.capacity === undefined ||
+                        transactionClassData.capacity === ""
+                            ? null
+                            : Number(
+                                transactionClassData.capacity
+                            );
 
                     const transactionBookedCount =
                         Number(
                             transactionClassData.bookedCount || 0
                         );
 
-                    if (
-                        transactionBookedCount >=
-                        transactionCapacity
-                    ) {
+                    /*
+                    * Si capacity es null significa:
+                    *
+                    * - capacidad vacía
+                    * - PARA LOS ALLÍ PRESENTES
+                    * - sin límite de plazas
+                    *
+                    * En esos casos no comprobamos si está llena.
+                    */
 
+                    if (
+                        transactionCapacity !== null &&
+                        transactionBookedCount >= transactionCapacity
+                    ) {
                         throw new HttpsError(
                             "resource-exhausted",
                             "Lo sentimos, la clase está completa."
