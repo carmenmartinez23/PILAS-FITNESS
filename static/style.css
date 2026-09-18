@@ -1100,69 +1100,167 @@ gap: 10px;
 }
 
 /* TARJETAS DE CLASES MÁS COMPACTAS */
+/* =========================================================
+   TARJETAS DE ACTIVIDADES DENTRO DE CADA HORARIO
+   ========================================================= */
+
 .class-grid-inner {
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+    width: 100%;
 }
+
+
+/* =========================================================
+   TARJETA
+   ========================================================= */
 
 .class-card {
-    padding: 16px;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    background: #fff;
+    border: 1px solid var(--green-soft);
+    min-height: 115px;
+    overflow: hidden;
 }
+
+
+/* =========================================================
+   IMAGEN
+   ========================================================= */
+
+.class-card > img {
+    width: 145px;
+    height: auto;
+    min-height: 115px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   CONTENIDO
+   ========================================================= */
+
+.class-card .card-body {
+    flex: 1;
+    min-width: 0;
+    padding: 13px 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* =========================================================
+   PARTE SUPERIOR
+   ========================================================= */
+
+.class-card .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+
+    font: 700 .62rem 'DM Mono', monospace;
+    color: var(--green-dark);
+}
+
+
+/* =========================================================
+   DISPONIBILIDAD
+   ========================================================= */
+
+.class-card .availability {
+    background: var(--green-soft);
+    color: var(--green-dark);
+    padding: 3px 6px;
+    white-space: nowrap;
+}
+
+.class-card .availability.full {
+    background: var(--ink);
+    color: #fff;
+}
+
+
+/* =========================================================
+   TÍTULO
+   ========================================================= */
 
 .class-card h3 {
-    font-size: 1.25rem;
-    line-height: 1.1;
-    margin-bottom: 8px;
+    font-size: 1.05rem;
+    line-height: 1.12;
+    letter-spacing: -.04em;
+    margin: 7px 0 4px;
 }
+
+
+/* =========================================================
+   INFORMACIÓN
+   ========================================================= */
 
 .class-card p {
-    font-size: 0.78rem;
-    line-height: 1.4;
-    margin-bottom: 7px;
+    font-size: .70rem;
+    line-height: 1.35;
+    color: var(--muted);
+    margin: 0;
 }
 
-.class-card .meta {
-    font-size: 0.68rem;
+
+/* =========================================================
+   DESCRIPCIÓN
+   ========================================================= */
+
+.class-card .description {
+    font-size: .68rem;
+    line-height: 1.4;
+    margin-top: 6px !important;
+    min-height: 0;
 }
+
+
+/* =========================================================
+   BOTÓN RESERVAR
+   ========================================================= */
 
 .class-card .reserve {
-    padding: 10px 12px;
-    font-size: 18px;
-}
-
-
-/* MÓVIL */
-@media (max-width: 760px) {
-
-    .class-grid-inner {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .class-card {
-        padding: 13px;
-    }
-
-    .class-card h3 {
-        font-size: 1.05rem;
-        margin-bottom: 6px;
-    }
-
-    .class-card p {
-        font-size: 0.74rem;
-        margin-bottom: 5px;
-    }
-
-    .class-card .reserve {
-        padding: 9px 11px;
-        font-size: 0.68rem;
-    }
-}
-
-.schedule-item {
     width: 100%;
-    margin-bottom: 10px;
+    border: 0;
+    border-top: 1px solid var(--green-soft);
+    background: transparent;
+    color: var(--ink);
+
+    font: 700 .68rem Manrope, sans-serif;
+
+    text-align: left;
+
+    padding: 7px 0 0;
+    margin-top: auto;
+
+    cursor: pointer;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
+
+
+.class-card .reserve b {
+    font-size: .9rem;
+}
+
+
+.class-card .reserve:disabled {
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   HORARIO / CONTENIDO
+   ========================================================= */
 
 .schedule-item-content {
     display: none;
@@ -1174,12 +1272,59 @@ gap: 10px;
     display: block;
 }
 
-.schedule-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
 
-.schedule-button {
-    width: 100%;
+/* =========================================================
+   MÓVIL
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+    .class-grid-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .class-card {
+        min-height: 95px;
+    }
+
+    .class-card > img {
+        width: 105px;
+        min-height: 95px;
+    }
+
+    .class-card .card-body {
+        padding: 9px 11px;
+    }
+
+    .class-card .card-top {
+        font-size: .56rem;
+    }
+
+    .class-card h3 {
+        font-size: .88rem;
+        line-height: 1.1;
+        margin: 5px 0 3px;
+    }
+
+    .class-card p {
+        font-size: .63rem;
+        line-height: 1.3;
+    }
+
+    .class-card .description {
+        font-size: .61rem;
+        margin-top: 4px !important;
+    }
+
+    .class-card .reserve {
+        font-size: .62rem;
+        padding-top: 5px;
+        margin-top: 5px;
+    }
+
+    .class-card .availability {
+        padding: 2px 4px;
+    }
 }
