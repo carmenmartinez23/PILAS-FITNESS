@@ -936,10 +936,7 @@ function renderClassesIntoContainer(
 function createClassCard(classItem) {
 
     const card =
-        document.createElement(
-            "article"
-        );
-
+        document.createElement("article");
 
     card.className =
         "class-card";
@@ -949,42 +946,26 @@ function createClassCard(classItem) {
     // IMAGEN
     // ======================================
 
-    if (
-        classItem.imageUrl
-    ) {
+    if (classItem.imageUrl) {
 
         const image =
-            document.createElement(
-                "img"
-            );
-
+            document.createElement("img");
 
         image.src =
             classItem.imageUrl;
-
 
         image.alt =
             classItem.title ||
             "Actividad";
 
-
         image.loading =
             "lazy";
 
+        image.onerror = () => {
+            image.style.display = "none";
+        };
 
-        image.onerror =
-            () => {
-
-                image.style.display =
-                    "none";
-
-            };
-
-
-        card.appendChild(
-            image
-        );
-
+        card.appendChild(image);
     }
 
 
@@ -993,10 +974,7 @@ function createClassCard(classItem) {
     // ======================================
 
     const body =
-        document.createElement(
-            "div"
-        );
-
+        document.createElement("div");
 
     body.className =
         "card-body";
@@ -1006,28 +984,18 @@ function createClassCard(classItem) {
     // TIPO
     // ======================================
 
-    if (
-        classItem.tipo
-    ) {
+    if (classItem.tipo) {
 
         const type =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         type.className =
             "class-type";
 
-
         type.textContent =
             classItem.tipo;
 
-
-        body.appendChild(
-            type
-        );
-
+        body.appendChild(type);
     }
 
 
@@ -1036,47 +1004,31 @@ function createClassCard(classItem) {
     // ======================================
 
     const title =
-        document.createElement(
-            "h4"
-        );
-
+        document.createElement("h4");
 
     title.textContent =
         classItem.title ||
         "Actividad";
 
-
-    body.appendChild(
-        title
-    );
+    body.appendChild(title);
 
 
     // ======================================
     // CENTRO / ENTRENADOR
     // ======================================
 
-    if (
-        classItem.trainer
-    ) {
+    if (classItem.trainer) {
 
         const trainer =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         trainer.className =
             "class-trainer";
 
-
         trainer.textContent =
             classItem.trainer;
 
-
-        body.appendChild(
-            trainer
-        );
-
+        body.appendChild(trainer);
     }
 
 
@@ -1084,30 +1036,18 @@ function createClassCard(classItem) {
     // FECHA
     // ======================================
 
-    if (
-        classItem.date
-    ) {
+    if (classItem.date) {
 
         const date =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         date.className =
             "class-date";
 
-
         date.textContent =
-            formatDate(
-                classItem.date
-            );
+            formatDate(classItem.date);
 
-
-        body.appendChild(
-            date
-        );
-
+        body.appendChild(date);
     }
 
 
@@ -1115,28 +1055,18 @@ function createClassCard(classItem) {
     // DESCRIPCIÓN
     // ======================================
 
-    if (
-        classItem.description
-    ) {
+    if (classItem.description) {
 
         const description =
-            document.createElement(
-                "div"
-            );
-
+            document.createElement("div");
 
         description.className =
             "class-description";
 
-
         description.textContent =
             classItem.description;
 
-
-        body.appendChild(
-            description
-        );
-
+        body.appendChild(description);
     }
 
 
@@ -1145,182 +1075,121 @@ function createClassCard(classItem) {
     // ======================================
 
     const capacity =
-        document.createElement(
-            "div"
-        );
-
+        document.createElement("div");
 
     capacity.className =
-        "class-capacity";
+        "availability";
 
 
     const numericCapacity =
-        Number(
-            classItem.capacity
-        );
-
+        Number(classItem.capacity);
 
     const hasLimitedCapacity =
-        Number.isFinite(
-            numericCapacity
-        ) &&
+        Number.isFinite(numericCapacity) &&
         numericCapacity > 0;
 
-
     const bookedCount =
-        Number(
-            classItem.bookedCount || 0
-        );
+        Number(classItem.bookedCount || 0);
 
 
-    if (
-        hasLimitedCapacity
-    ) {
+    let isFull = false;
 
-        const remaining =
+
+    if (hasLimitedCapacity) {
+
+        const placesLeft =
             Math.max(
-                numericCapacity -
-                bookedCount,
+                numericCapacity - bookedCount,
                 0
             );
 
 
-        if (
-            remaining <= 0
-        ) {
+        if (placesLeft <= 0) {
+
+            isFull = true;
 
             capacity.textContent =
                 "Clase completa";
 
-
-            capacity.classList.add(
-                "full"
-            );
+            capacity.classList.add("full");
 
         } else {
 
             capacity.textContent =
-                `${remaining} ${
-                    remaining === 1
+                `${placesLeft} ${
+                    placesLeft === 1
                         ? "plaza disponible"
                         : "plazas disponibles"
                 }`;
-
         }
 
     } else {
 
         capacity.textContent =
             "Plazas disponibles";
-
     }
 
 
-    body.appendChild(
-        capacity
-    );
-
-
-    // ======================================
-    // ACCIONES
-    // ======================================
-
-    const actions =
-        document.createElement(
-            "div"
-        );
-
-
-    actions.className =
-        "card-actions";
+    body.appendChild(capacity);
 
 
     // ======================================
     // BOTÓN RESERVAR
     // ======================================
 
-    const button =
-        document.createElement(
-            "button"
-        );
+    const actions =
+        document.createElement("div");
+
+    actions.className =
+        "card-actions";
 
 
-    button.type =
-        "button";
+    if (isFull) {
 
+        const button =
+            document.createElement("button");
 
-    button.className =
-        "reserve-class-button";
+        button.type =
+            "button";
 
-
-    button.textContent =
-        "Reservar";
-
-
-    // ======================================
-    // COMPROBAR SI ESTÁ COMPLETA
-    // ======================================
-
-    const isFull =
-        hasLimitedCapacity &&
-        bookedCount >= numericCapacity;
-
-
-    if (
-        isFull
-    ) {
+        button.className =
+            "reserve";
 
         button.disabled =
             true;
 
-
         button.textContent =
-            "Completa";
+            "Clase completa";
 
+        actions.appendChild(button);
 
-        button.classList.add(
-            "disabled"
+    } else {
+
+        const reserveLink =
+            document.createElement("a");
+
+        reserveLink.className =
+            "reserve";
+
+        reserveLink.href =
+            `/reservar/${encodeURIComponent(
+                classItem.id
+            )}`;
+
+        reserveLink.innerHTML = `
+            Reservar plaza
+            <b>→</b>
+        `;
+
+        actions.appendChild(
+            reserveLink
         );
-
     }
 
 
-    // ======================================
-    // CLICK RESERVAR
-    // ======================================
+    body.appendChild(actions);
 
-    button.addEventListener(
-        "click",
-        () => {
-
-            if (
-                button.disabled
-            ) {
-                return;
-            }
-
-
-            goToReservation(
-                classItem
-            );
-
-        }
-    );
-
-
-    actions.appendChild(
-        button
-    );
-
-
-    body.appendChild(
-        actions
-    );
-
-
-    card.appendChild(
-        body
-    );
+    card.appendChild(body);
 
 
     return card;
