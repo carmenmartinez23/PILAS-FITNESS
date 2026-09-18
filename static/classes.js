@@ -462,14 +462,6 @@ function createScheduleButton(
                     : "clases"
             }
         </small>
-
-        <b>
-            ${
-                isSelected
-                    ? "↓"
-                    : "→"
-            }
-        </b>
     `;
 
 
