@@ -437,10 +437,13 @@ async function loadClasses() {
         // "orden" que guarda el backend.
         // ======================================
 
-        classes.sort(
-            (a, b) =>
-                a.orden - b.orden
-        );
+        classes.sort((a, b) => {
+            return String(a.id).localeCompare(
+                String(b.id),
+                undefined,
+                { numeric: true }
+            );
+        });
 
 
         allClasses =
