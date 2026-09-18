@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -378,8 +379,7 @@ async function sincronizarClasesConFirestore() {
 // CLOUD FUNCTION - SINCRONIZAR CLASES
 // ======================================================
 
-exports.syncClassesFromSheets =
-    onCall(
+exports.syncClassesFromSheets = onCall(
         {
             secrets: [
                 googleServiceAccountJson
@@ -412,6 +412,37 @@ exports.syncClassesFromSheets =
             }
         }
     );
+
+// ======================================================
+// SINCRONIZACIÓN AUTOMÁTICA GOOGLE SHEETS → FIRESTORE
+// ======================================================
+
+exports.syncClassesAutomatically = onSchedule(
+    {
+        schedule: "every 5 minutes",
+        timeZone: "Europe/Madrid",
+        secrets: [
+            googleServiceAccountJson
+        ]
+    },
+    async () => {
+        try {
+            const classes =
+                await sincronizarClasesConFirestore();
+
+            console.log(
+                `Sincronización automática completada: ${classes.length} clases.`
+            );
+        } catch (error) {
+            console.error(
+                "Error en la sincronización automática de clases:",
+                error
+            );
+
+            throw error;
+        }
+    }
+);
 
 // ======================================================
 // REGISTRAR RESERVA EN GOOGLE SHEETS
