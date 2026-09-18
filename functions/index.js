@@ -232,7 +232,8 @@ async function obtenerClasesDesdeSheets() {
             description,
             imageUrl,
             activa,
-            tipo
+            tipo,
+            orden: i
         });
     }
 
