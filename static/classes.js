@@ -251,7 +251,7 @@ async function loadClasses() {
                     db,
                     "classes"
                 ),
-            orderBy("id", "asc")
+            orderBy("orden", "asc")
             );
 
 
