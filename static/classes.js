@@ -43,13 +43,6 @@ const classGrid =
 
 /* =========================================================
    HORARIOS PRINCIPALES
-   =========================================================
-   
-   Estos son los horarios que quieres mostrar
-   como principales.
-
-   Cualquier otro horario que aparezca en Google Sheets
-   se mostrará automáticamente en "OTROS HORARIOS".
    ========================================================= */
 
 const MAIN_SCHEDULES = [
@@ -156,6 +149,7 @@ async function loadClasses() {
 
             classGrid.innerHTML = `
                 <div class="schedule-empty">
+
                     <p class="eyebrow">
                         ERROR
                     </p>
@@ -167,6 +161,7 @@ async function loadClasses() {
                     <p>
                         Inténtalo de nuevo.
                     </p>
+
                 </div>
             `;
 
@@ -181,16 +176,14 @@ async function loadClasses() {
    NORMALIZAR HORARIOS
    =========================================================
 
-   Convierte diferentes formatos a uno único.
-
-   Ejemplos:
+   Convierte:
 
    10,30-12,00
    10:30-12:00
    10,30 - 12,00
    10:30 - 12:00
 
-   Todos terminan siendo:
+   en:
 
    10:30-12:00
    ========================================================= */
@@ -205,8 +198,7 @@ function normalizeTime(value) {
     }
 
 
-    let time = String(value)
-        .trim();
+    let time = String(value).trim();
 
 
     if (!time) {
@@ -215,7 +207,7 @@ function normalizeTime(value) {
 
 
     /*
-     * Comas decimales de la hora:
+     * Convierte comas en dos puntos.
      *
      * 10,30 → 10:30
      */
@@ -227,7 +219,7 @@ function normalizeTime(value) {
 
 
     /*
-     * Quitamos todos los espacios.
+     * Quitamos espacios.
      */
 
     time = time.replace(
@@ -237,7 +229,7 @@ function normalizeTime(value) {
 
 
     /*
-     * Normalizamos posibles guiones.
+     * Normalizamos guiones.
      */
 
     time = time.replace(
@@ -415,9 +407,28 @@ function createScheduleButton(
         );
 
 
+    /*
+     * Contenedor completo del horario.
+     *
+     * Dentro estarán:
+     *
+     * - botón
+     * - clases desplegadas
+     */
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "schedule-item";
+
+
+    /* =====================================================
+       BOTÓN
+       ===================================================== */
+
     const button =
         document.createElement("button");
-
 
     button.type = "button";
 
@@ -425,10 +436,11 @@ function createScheduleButton(
         "schedule-button";
 
 
-    if (
-        selectedSchedule ===
-        schedule.id
-    ) {
+    const isSelected =
+        selectedSchedule === schedule.id;
+
+
+    if (isSelected) {
 
         button.classList.add(
             "selected"
@@ -451,16 +463,82 @@ function createScheduleButton(
             }
         </small>
 
-        <b>→</b>
+        <b>
+            ${
+                isSelected
+                    ? "↓"
+                    : "→"
+            }
+        </b>
     `;
 
+
+    /* =====================================================
+       CONTENEDOR DE LAS CLASES
+       ===================================================== */
+
+    const content =
+        document.createElement("div");
+
+    content.className =
+        "schedule-item-content";
+
+
+    /*
+     * Si este horario está seleccionado,
+     * ponemos las clases JUSTO debajo del botón.
+     */
+
+    if (isSelected) {
+
+        content.classList.add(
+            "open"
+        );
+
+
+        renderClassesIntoContainer(
+            classesForSchedule,
+            content,
+            schedule.label
+        );
+
+    }
+
+
+    /* =====================================================
+       CLICK DEL BOTÓN
+       ===================================================== */
 
     button.addEventListener(
         "click",
         () => {
 
-            selectedSchedule =
-                schedule.id;
+            /*
+             * Si pulsamos el horario que ya está abierto,
+             * lo cerramos.
+             */
+
+            if (
+                selectedSchedule ===
+                schedule.id
+            ) {
+
+                selectedSchedule = null;
+
+            }
+
+            /*
+             * Si pulsamos otro horario,
+             * abrimos ese.
+             */
+
+            else {
+
+                selectedSchedule =
+                    schedule.id;
+
+            }
+
 
             renderSchedules();
 
@@ -468,13 +546,163 @@ function createScheduleButton(
     );
 
 
-    return button;
+    wrapper.appendChild(
+        button
+    );
+
+
+    wrapper.appendChild(
+        content
+    );
+
+
+    return wrapper;
 
 }
 
 
 /* =========================================================
-   RENDERIZAR HORARIOS
+   CREAR BOTÓN DE ACTIVIDADES SIN HORARIO
+   ========================================================= */
+
+function createNoScheduleButton(
+    classesWithoutSchedule
+) {
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "schedule-item";
+
+
+    /* =====================================================
+       BOTÓN
+       ===================================================== */
+
+    const button =
+        document.createElement("button");
+
+    button.type = "button";
+
+    button.className =
+        "schedule-button no-schedule-button";
+
+
+    const isSelected =
+        selectedSchedule ===
+        "__NO_SCHEDULE__";
+
+
+    if (isSelected) {
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+
+    button.innerHTML = `
+        <span>
+            Actividades sin horario
+        </span>
+
+        <small>
+            ${classesWithoutSchedule.length}
+            ${
+                classesWithoutSchedule.length === 1
+                    ? "actividad"
+                    : "actividades"
+            }
+        </small>
+
+        <b>
+            ${
+                isSelected
+                    ? "↓"
+                    : "→"
+            }
+        </b>
+    `;
+
+
+    /* =====================================================
+       CONTENIDO
+       ===================================================== */
+
+    const content =
+        document.createElement("div");
+
+    content.className =
+        "schedule-item-content";
+
+
+    if (isSelected) {
+
+        content.classList.add(
+            "open"
+        );
+
+
+        renderClassesIntoContainer(
+            classesWithoutSchedule,
+            content,
+            "Actividades sin horario"
+        );
+
+    }
+
+
+    /* =====================================================
+       CLICK
+       ===================================================== */
+
+    button.addEventListener(
+        "click",
+        () => {
+
+            if (
+                selectedSchedule ===
+                "__NO_SCHEDULE__"
+            ) {
+
+                selectedSchedule =
+                    null;
+
+            }
+
+            else {
+
+                selectedSchedule =
+                    "__NO_SCHEDULE__";
+
+            }
+
+
+            renderSchedules();
+
+        }
+    );
+
+
+    wrapper.appendChild(
+        button
+    );
+
+
+    wrapper.appendChild(
+        content
+    );
+
+
+    return wrapper;
+
+}
+
+
+/* =========================================================
+   RENDERIZAR TODOS LOS HORARIOS
    ========================================================= */
 
 function renderSchedules() {
@@ -495,6 +723,11 @@ function renderSchedules() {
 
     }
 
+
+    /*
+     * Limpiamos todo para volver a construir
+     * la estructura.
+     */
 
     section.innerHTML = "";
 
@@ -535,12 +768,12 @@ function renderSchedules() {
         getMainSchedules();
 
 
-    if (mainSchedules.length > 0) {
+    if (
+        mainSchedules.length > 0
+    ) {
 
         const mainTitle =
-            document.createElement(
-                "p"
-            );
+            document.createElement("p");
 
 
         mainTitle.className =
@@ -556,20 +789,18 @@ function renderSchedules() {
         );
 
 
-        const mainButtons =
-            document.createElement(
-                "div"
-            );
+        const mainContainer =
+            document.createElement("div");
 
 
-        mainButtons.className =
+        mainContainer.className =
             "schedule-buttons";
 
 
         mainSchedules.forEach(
             schedule => {
 
-                mainButtons.appendChild(
+                mainContainer.appendChild(
                     createScheduleButton(
                         schedule
                     )
@@ -580,7 +811,7 @@ function renderSchedules() {
 
 
         section.appendChild(
-            mainButtons
+            mainContainer
         );
 
     }
@@ -594,12 +825,12 @@ function renderSchedules() {
         getOtherSchedules();
 
 
-    if (otherSchedules.length > 0) {
+    if (
+        otherSchedules.length > 0
+    ) {
 
         const otherTitle =
-            document.createElement(
-                "p"
-            );
+            document.createElement("p");
 
 
         otherTitle.className =
@@ -615,20 +846,18 @@ function renderSchedules() {
         );
 
 
-        const otherButtons =
-            document.createElement(
-                "div"
-            );
+        const otherContainer =
+            document.createElement("div");
 
 
-        otherButtons.className =
+        otherContainer.className =
             "schedule-buttons";
 
 
         otherSchedules.forEach(
             schedule => {
 
-                otherButtons.appendChild(
+                otherContainer.appendChild(
                     createScheduleButton(
                         schedule
                     )
@@ -639,14 +868,14 @@ function renderSchedules() {
 
 
         section.appendChild(
-            otherButtons
+            otherContainer
         );
 
     }
 
 
     /* =====================================================
-       CLASES SIN HORARIO
+       ACTIVIDADES SIN HORARIO
        ===================================================== */
 
     const classesWithoutSchedule =
@@ -658,9 +887,7 @@ function renderSchedules() {
     ) {
 
         const noScheduleTitle =
-            document.createElement(
-                "p"
-            );
+            document.createElement("p");
 
 
         noScheduleTitle.className =
@@ -676,199 +903,50 @@ function renderSchedules() {
         );
 
 
-        const noScheduleButton =
-            document.createElement(
-                "button"
-            );
+        const noScheduleContainer =
+            document.createElement("div");
 
 
-        noScheduleButton.type =
-            "button";
-
-
-        noScheduleButton.className =
-            "schedule-button no-schedule-button";
-
-
-        if (
-            selectedSchedule ===
-            "__NO_SCHEDULE__"
-        ) {
-
-            noScheduleButton.classList.add(
-                "selected"
-            );
-
-        }
-
-
-        noScheduleButton.innerHTML = `
-            <span>
-                Actividades sin horario
-            </span>
-
-            <small>
-                ${classesWithoutSchedule.length}
-                ${
-                    classesWithoutSchedule.length === 1
-                        ? "actividad"
-                        : "actividades"
-                }
-            </small>
-
-            <b>→</b>
-        `;
-
-
-        noScheduleButton.addEventListener(
-            "click",
-            () => {
-
-                selectedSchedule =
-                    "__NO_SCHEDULE__";
-
-                renderSchedules();
-
-            }
-        );
-
-
-        const noScheduleButtons =
-            document.createElement(
-                "div"
-            );
-
-
-        noScheduleButtons.className =
+        noScheduleContainer.className =
             "schedule-buttons";
 
 
-        noScheduleButtons.appendChild(
-            noScheduleButton
+        noScheduleContainer.appendChild(
+            createNoScheduleButton(
+                classesWithoutSchedule
+            )
         );
 
 
         section.appendChild(
-            noScheduleButtons
+            noScheduleContainer
         );
 
     }
-
-
-    /* =====================================================
-       NADA SELECCIONADO
-       ===================================================== */
-
-    if (
-        selectedSchedule === null
-    ) {
-
-        classGrid.innerHTML = `
-            <div class="schedule-placeholder">
-
-                <p>
-                    Selecciona un horario para ver
-                    las clases disponibles.
-                </p>
-
-            </div>
-        `;
-
-        return;
-
-    }
-
-
-    /* =====================================================
-       CLASES SIN HORARIO SELECCIONADAS
-       ===================================================== */
-
-    if (
-        selectedSchedule ===
-        "__NO_SCHEDULE__"
-    ) {
-
-        renderClasses(
-            classesWithoutSchedule
-        );
-
-        return;
-
-    }
-
-
-    /* =====================================================
-       CLASES DEL HORARIO SELECCIONADO
-       ===================================================== */
-
-    const selectedClasses =
-        getClassesForSchedule({
-            id: selectedSchedule
-        });
-
-
-    renderClasses(
-        selectedClasses
-    );
 
 }
 
 
 /* =========================================================
-   RENDERIZAR CLASES
+   RENDERIZAR CLASES DENTRO DEL HORARIO
    ========================================================= */
 
-function renderClasses(
-    classes
+function renderClassesIntoContainer(
+    classes,
+    container,
+    selectedLabel
 ) {
 
-    classGrid.innerHTML = "";
-
-
-    const selected =
-        getAvailableSchedules()
-            .find(
-                schedule =>
-                    schedule.id ===
-                    selectedSchedule
-            );
-
-
-    const isNoSchedule =
-        selectedSchedule ===
-        "__NO_SCHEDULE__";
-
-
     /* =====================================================
-       CABECERA DEL HORARIO
+       CABECERA
        ===================================================== */
 
     const heading =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
 
     heading.className =
         "selected-schedule-heading";
-
-
-    let selectedLabel = "";
-
-
-    if (isNoSchedule) {
-
-        selectedLabel =
-            "Actividades sin horario";
-
-    } else {
-
-        selectedLabel =
-            selected
-                ? selected.label
-                : selectedSchedule;
-
-    }
 
 
     heading.innerHTML = `
@@ -876,7 +954,8 @@ function renderClasses(
 
             <p class="eyebrow">
                 ${
-                    isNoSchedule
+                    selectedSchedule ===
+                    "__NO_SCHEDULE__"
                         ? "ACTIVIDADES"
                         : "HORARIO SELECCIONADO"
                 }
@@ -887,43 +966,12 @@ function renderClasses(
             </h2>
 
         </div>
-
-        <button
-            type="button"
-            class="change-schedule"
-            id="change-schedule"
-        >
-            Cambiar horario
-        </button>
     `;
 
 
-    classGrid.appendChild(
+    container.appendChild(
         heading
     );
-
-
-    const changeButton =
-        document.getElementById(
-            "change-schedule"
-        );
-
-
-    if (changeButton) {
-
-        changeButton.addEventListener(
-            "click",
-            () => {
-
-                selectedSchedule =
-                    null;
-
-                renderSchedules();
-
-            }
-        );
-
-    }
 
 
     /* =====================================================
@@ -935,9 +983,7 @@ function renderClasses(
     ) {
 
         const empty =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
 
         empty.className =
@@ -959,7 +1005,7 @@ function renderClasses(
         `;
 
 
-        classGrid.appendChild(
+        container.appendChild(
             empty
         );
 
@@ -974,9 +1020,7 @@ function renderClasses(
        ===================================================== */
 
     const cards =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
 
     cards.className =
@@ -990,24 +1034,50 @@ function renderClasses(
     classes.forEach(
         classItem => {
 
+            /*
+             * Si capacity es un número positivo,
+             * la clase tiene plazas limitadas.
+             *
+             * Si está vacío o contiene un texto como
+             * "PARA LOS ALLÍ PRESENTES",
+             * se considera ilimitada.
+             */
+
             const hasCapacity =
                 classItem.capacity !== null &&
                 classItem.capacity !== undefined &&
-                String(classItem.capacity).trim() !== "" &&
+                String(
+                    classItem.capacity
+                ).trim() !== "" &&
                 Number.isFinite(
-                    Number(classItem.capacity)
+                    Number(
+                        classItem.capacity
+                    )
                 ) &&
-                Number(classItem.capacity) > 0;
+                Number(
+                    classItem.capacity
+                ) > 0;
 
-            const placesLeft = hasCapacity
-                ? Number(classItem.capacity) -
-                Number(classItem.bookedCount || 0)
-                : null;
+
+            const placesLeft =
+                hasCapacity
+                    ? Number(
+                        classItem.capacity
+                    ) -
+                    Number(
+                        classItem.bookedCount || 0
+                    )
+                    : null;
+
 
             const isFull =
                 hasCapacity &&
                 placesLeft <= 0;
 
+
+            /* =================================================
+               TARJETA
+               ================================================= */
 
             const card =
                 document.createElement(
@@ -1019,10 +1089,9 @@ function renderClasses(
                 "class-card";
 
 
-            /*
-             * Normalizamos la hora solamente
-             * para mostrarla correctamente.
-             */
+            /* =================================================
+               HORA
+               ================================================= */
 
             const displayTime =
                 normalizeTime(
@@ -1030,13 +1099,25 @@ function renderClasses(
                 );
 
 
+            /* =================================================
+               HTML DE LA TARJETA
+               ================================================= */
+
             card.innerHTML = `
+
                 <img
-                    src="${classItem.imageUrl || ""}"
-                    alt="${classItem.title || "Clase"}"
+                    src="${
+                        classItem.imageUrl || ""
+                    }"
+                    alt="${
+                        classItem.title ||
+                        "Clase"
+                    }"
                 >
 
+
                 <div class="card-body">
+
 
                     <div class="card-top">
 
@@ -1048,9 +1129,12 @@ function renderClasses(
                             }
                         </span>
 
+
                         <span
                             class="availability ${
-                                isFull ? "full" : ""
+                                isFull
+                                    ? "full"
+                                    : ""
                             }"
                         >
                             ${
@@ -1066,13 +1150,18 @@ function renderClasses(
 
 
                     <h3>
-                        ${classItem.title || ""}
+                        ${
+                            classItem.title ||
+                            ""
+                        }
                     </h3>
 
 
                     <p>
+
                         ${
-                            classItem.trainer || ""
+                            classItem.trainer ||
+                            ""
                         }
 
                         ${
@@ -1097,10 +1186,10 @@ function renderClasses(
                         }
 
                         ${
-                            displayTime
-                                ? displayTime
-                                : ""
+                            displayTime ||
+                            ""
                         }
+
                     </p>
 
 
@@ -1117,28 +1206,40 @@ function renderClasses(
 
                     ${
                         isFull
+
                             ? `
                                 <button
+                                    type="button"
                                     class="reserve"
                                     disabled
                                 >
                                     Clase completa
                                 </button>
                             `
+
                             : `
+
                                 <a
                                     class="reserve"
                                     href="/reservar/${encodeURIComponent(
                                         classItem.id
                                     )}"
                                 >
+
                                     Reservar plaza
-                                    <b>→</b>
+
+                                    <b>
+                                        →
+                                    </b>
+
                                 </a>
+
                             `
                     }
 
+
                 </div>
+
             `;
 
 
@@ -1150,7 +1251,7 @@ function renderClasses(
     );
 
 
-    classGrid.appendChild(
+    container.appendChild(
         cards
     );
 
@@ -1159,6 +1260,15 @@ function renderClasses(
 
 /* =========================================================
    FORMATEAR FECHA
+   =========================================================
+
+   Convierte:
+
+   2026-10-03
+
+   en:
+
+   03 de octubre de 2026
    ========================================================= */
 
 function formatDate(
@@ -1166,7 +1276,9 @@ function formatDate(
 ) {
 
     if (!value) {
+
         return "Fecha no disponible";
+
     }
 
 
@@ -1179,11 +1291,11 @@ function formatDate(
     let year;
 
 
-    /*
-     * Formato:
-     *
-     * 2026-10-03
-     */
+    /* =====================================================
+       FORMATO:
+
+       2026-10-03
+       ===================================================== */
 
     if (
         /^\d{4}-\d{2}-\d{2}$/.test(
@@ -1200,11 +1312,11 @@ function formatDate(
     }
 
 
-    /*
-     * Formato:
-     *
-     * 03/10/2026
-     */
+    /* =====================================================
+       FORMATO:
+
+       03/10/2026
+       ===================================================== */
 
     else if (
         /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
@@ -1221,9 +1333,9 @@ function formatDate(
     }
 
 
-    /*
-     * Cualquier otro formato.
-     */
+    /* =====================================================
+       OTROS FORMATOS
+       ===================================================== */
 
     else {
 
@@ -1290,13 +1402,31 @@ function formatDate(
         Number(month) - 1;
 
 
+    /*
+     * Si por algún motivo el mes no es válido,
+     * evitamos mostrar "undefined".
+     */
+
+    if (
+        monthIndex < 0 ||
+        monthIndex > 11
+    ) {
+
+        return `${day}/${month}/${year}`;
+
+    }
+
+
     return `
         ${day}
         de
         ${months[monthIndex]}
         de
         ${year}
-    `;
+    `.replace(
+        /\s+/g,
+        " "
+    ).trim();
 
 }
 
