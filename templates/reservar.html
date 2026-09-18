@@ -5,224 +5,215 @@
 {% block content %}
 
 <section class="reservation-page">
-
-```
 <!-- INFORMACIÓN DE LA ACTIVIDAD -->
-<div class="reservation-info">
-
-    <p class="eyebrow">RESERVA TU PLAZA</p>
-
-    <h1>Entrena.<br><em>Disfruta.</em><br>Repítelo.</h1>
-
-    <div class="reservation-class">
-
-        {% if fitness_class.imageUrl %}
-        <div class="reservation-image">
-            <img
-                src="{{ fitness_class.imageUrl }}"
-                alt="{{ fitness_class.title }}"
-            >
-        </div>
-        {% endif %}
-
-        <div class="reservation-class-content">
-
-            <div class="reservation-class-top">
-                <span>{{ fitness_class.date }}</span>
-                <span>{{ fitness_class.time }}</span>
+    <div class="reservation-info">
+        <p class="eyebrow">RESERVA TU PLAZA</p>
+        <div class="reservation-class">
+            {% if fitness_class.imageUrl %}
+            <div class="reservation-image">
+                <img
+                    src="{{ fitness_class.imageUrl }}"
+                    alt="{{ fitness_class.title }}"
+                >
             </div>
-
-            <h2>{{ fitness_class.title }}</h2>
-
-            {% if fitness_class.trainer %}
-            <p class="reservation-trainer">
-                {{ fitness_class.trainer }}
-            </p>
             {% endif %}
 
-            <div class="reservation-meta">
+            <div class="reservation-class-content">
 
-                {% if fitness_class.duration %}
-                <span>
-                    {{ fitness_class.duration }} min
-                </span>
+                <div class="reservation-class-top">
+                    <span>{{ fitness_class.date }}</span>
+                    <span>{{ fitness_class.time }}</span>
+                </div>
+
+                <h2>{{ fitness_class.title }}</h2>
+
+                {% if fitness_class.trainer %}
+                <p class="reservation-trainer">
+                    {{ fitness_class.trainer }}
+                </p>
                 {% endif %}
 
-                {% if fitness_class.capacity %}
-                <span>
-                    {{ fitness_class.capacity }} plazas
-                </span>
+                <div class="reservation-meta">
+
+                    {% if fitness_class.duration %}
+                    <span>
+                        {{ fitness_class.duration }} min
+                    </span>
+                    {% endif %}
+
+                    {% if fitness_class.capacity %}
+                    <span>
+                        {{ fitness_class.capacity }} plazas
+                    </span>
+                    {% endif %}
+
+                </div>
+
+                {% if fitness_class.description %}
+                <p class="reservation-description">
+                    {{ fitness_class.description }}
+                </p>
                 {% endif %}
 
             </div>
-
-            {% if fitness_class.description %}
-            <p class="reservation-description">
-                {{ fitness_class.description }}
-            </p>
-            {% endif %}
 
         </div>
 
     </div>
-
-</div>
 
 
 <!-- FORMULARIO -->
-<div class="reservation-card">
+    <div class="reservation-card">
 
-    <div id="reservation-form-container">
+        <div id="reservation-form-container">
 
-        <p class="eyebrow">DATOS DE RESERVA</p>
+            <p class="eyebrow">DATOS DE RESERVA</p>
 
-        <h2>Reserva tu plaza</h2>
+            <h2>Reserva tu plaza</h2>
 
-        <p class="reservation-intro">
-            Completa tus datos para reservar esta actividad.
-            No necesitas crear una cuenta.
-        </p>
+            <p class="reservation-intro">
+                Completa tus datos para reservar esta actividad.
+                No necesitas crear una cuenta.
+            </p>
 
-        <form id="reservation-form">
+            <form id="reservation-form">
 
-            <label>
-                Nombre completo
+                <label>
+                    Nombre completo
 
-                <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    autocomplete="name"
-                    required
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        autocomplete="name"
+                        required
+                    >
+                </label>
+
+
+                <label>
+                    Número de teléfono
+
+                    <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        autocomplete="tel"
+                        required
+                    >
+                </label>
+
+
+                <label>
+                    Correo electrónico
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        autocomplete="email"
+                        required
+                    >
+                </label>
+
+
+                <label>
+                    Fecha de nacimiento
+
+                    <input
+                        type="date"
+                        id="birthDate"
+                        name="birthDate"
+                        autocomplete="bday"
+                        required
+                    >
+                </label>
+
+
+                <label>
+                    Número de entrada
+
+                    <input
+                        type="number"
+                        id="entryNumber"
+                        name="entryNumber"
+                        min="0"
+                        max="1700"
+                        inputmode="numeric"
+                        required
+                    >
+
+                    <small>
+                        Introduce el número de entrada que utilizas para reservar.
+                    </small>
+                </label>
+
+
+                <div
+                    id="reservation-message"
+                    class="reservation-message"
+                ></div>
+
+
+                <button
+                    type="submit"
+                    class="primary submit reservation-submit"
                 >
-            </label>
+                    <span>Reservar plaza</span>
+                    <b>→</b>
+                </button>
 
+            </form>
 
-            <label>
-                Número de teléfono
-
-                <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    autocomplete="tel"
-                    required
-                >
-            </label>
-
-
-            <label>
-                Correo electrónico
-
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    autocomplete="email"
-                    required
-                >
-            </label>
-
-
-            <label>
-                Fecha de nacimiento
-
-                <input
-                    type="date"
-                    id="birthDate"
-                    name="birthDate"
-                    autocomplete="bday"
-                    required
-                >
-            </label>
-
-
-            <label>
-                Número de entrada
-
-                <input
-                    type="number"
-                    id="entryNumber"
-                    name="entryNumber"
-                    min="0"
-                    max="1700"
-                    inputmode="numeric"
-                    required
-                >
-
-                <small>
-                    Introduce el número de entrada que utilizas para reservar.
-                </small>
-            </label>
-
-
-            <div
-                id="reservation-message"
-                class="reservation-message"
-            ></div>
-
-
-            <button
-                type="submit"
-                class="primary submit reservation-submit"
-            >
-                <span>Reservar plaza</span>
-                <b>→</b>
-            </button>
-
-        </form>
-
-    </div>
-
-
-    <!-- RESERVA CORRECTA -->
-    <div
-        id="reservation-success"
-        class="reservation-success"
-        hidden
-    >
-
-        <div class="reservation-success-icon">
-            ✓
         </div>
 
-        <p class="eyebrow">
-            RESERVA CONFIRMADA
-        </p>
 
-        <h2>
-            ¡Plaza reservada!
-        </h2>
-
-        <p>
-            Tu reserva para
-            <strong>{{ fitness_class.title }}</strong>
-            se ha realizado correctamente.
-        </p>
-
-        <div class="reservation-ticket">
-            <span>Nº DE ENTRADA</span>
-            <strong id="success-entry-number"></strong>
-        </div>
-
-        <p>
-            Hemos enviado un correo de confirmación
-            a la dirección que has indicado.
-        </p>
-
-        <a
-            href="{{ url_for('index') }}#clases"
-            class="primary reservation-back"
+        <!-- RESERVA CORRECTA -->
+        <div
+            id="reservation-success"
+            class="reservation-success"
+            hidden
         >
-            Volver a las clases
-            <b>→</b>
-        </a>
+
+            <div class="reservation-success-icon">
+                ✓
+            </div>
+
+            <p class="eyebrow">
+                RESERVA CONFIRMADA
+            </p>
+
+            <h2>
+                ¡Plaza reservada!
+            </h2>
+
+            <p>
+                Tu reserva para
+                <strong>{{ fitness_class.title }}</strong>
+                se ha realizado correctamente.
+            </p>
+
+            <div class="reservation-ticket">
+                <span>Nº DE ENTRADA</span>
+                <strong id="success-entry-number"></strong>
+            </div>
+
+            <p>
+                Hemos enviado un correo de confirmación
+                a la dirección que has indicado.
+            </p>
+
+            <a
+                href="{{ url_for('index') }}#clases"
+                class="primary reservation-back"
+            >
+                Volver a las clases
+                <b>→</b>
+            </a>
+
+        </div>
 
     </div>
-
-</div>
-```
-
 </section>
 
 {% endblock %}
