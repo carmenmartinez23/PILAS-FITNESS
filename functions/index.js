@@ -1527,7 +1527,12 @@ exports.reserveClass =
                 Number(
                     currentClassData.bookedCount || 0
                 );
-
+            console.log("DEBUG RESERVA", {
+                classId: normalizedClassId,
+                capacity,
+                bookedCount,
+                classTitle: classData.title
+            });
             if (
                 capacity !== null &&
                 capacity !== undefined &&
