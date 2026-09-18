@@ -493,12 +493,58 @@ function renderSchedules(classes) {
     schedulesSection.innerHTML = "";
 
 
+    // ======================================
+    // SEPARAR ACTIVIDADES ESPECIALES
+    // ======================================
+
+    const normalizeDescription = (text) => {
+
+        return String(text || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    };
+
+
+    const specialActivities =
+        classes.filter((classItem) => {
+
+            const description =
+                normalizeDescription(
+                    classItem.description
+                );
+
+            return description.includes(
+                "para los alli presentes"
+            );
+        });
+
+
+    // ======================================
+    // SOLO CLASES NORMALES
+    // ======================================
+
+    const normalClasses =
+        classes.filter((classItem) => {
+
+            const description =
+                normalizeDescription(
+                    classItem.description
+                );
+
+            return !description.includes(
+                "para los alli presentes"
+            );
+        });
+
+
     // --------------------------------------
     // HORARIOS
     // --------------------------------------
 
     const schedules =
-        getSchedules(classes);
+        getSchedules(normalClasses);
 
 
     // --------------------------------------
@@ -506,7 +552,7 @@ function renderSchedules(classes) {
     // --------------------------------------
 
     const classesWithoutTime =
-        classes.filter(
+        normalClasses.filter(
             (classItem) =>
                 !classItem.time
         );
@@ -535,7 +581,7 @@ function renderSchedules(classes) {
 
 
     // ======================================
-    // CONTENEDOR
+    // CONTENEDOR HORARIOS
     // ======================================
 
     const buttonsContainer =
@@ -599,7 +645,7 @@ function renderSchedules(classes) {
             // ----------------------------------
 
             const scheduleClasses =
-                classes.filter(
+                normalClasses.filter(
                     (classItem) => {
 
                         if (!classItem.time) {
@@ -783,6 +829,75 @@ function renderSchedules(classes) {
 
         schedulesSection.appendChild(
             noScheduleWrapper
+        );
+    }
+
+
+    // ======================================
+    // OTRAS ACTIVIDADES
+    // ======================================
+
+    if (
+        specialActivities.length > 0
+    ) {
+
+        const specialWrapper =
+            document.createElement("div");
+
+        specialWrapper.className =
+            "special-activities-section";
+
+
+        const specialTitle =
+            document.createElement("h3");
+
+        specialTitle.textContent =
+            "Otras actividades para los allí presentes";
+
+
+        specialWrapper.appendChild(
+            specialTitle
+        );
+
+
+        const specialDescription =
+            document.createElement("p");
+
+        specialDescription.textContent =
+            "Actividades disponibles para los allí presentes.";
+
+
+        specialWrapper.appendChild(
+            specialDescription
+        );
+
+
+        const specialGrid =
+            document.createElement("div");
+
+        specialGrid.className =
+            "class-grid-inner";
+
+
+        specialActivities.forEach(
+            (classItem) => {
+
+                specialGrid.appendChild(
+                    createClassCard(
+                        classItem
+                    )
+                );
+            }
+        );
+
+
+        specialWrapper.appendChild(
+            specialGrid
+        );
+
+
+        schedulesSection.appendChild(
+            specialWrapper
         );
     }
 }
