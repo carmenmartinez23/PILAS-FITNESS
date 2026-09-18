@@ -870,13 +870,11 @@ function createClassCard(classItem) {
         image.loading =
             "lazy";
 
-
         image.onerror = () => {
 
             image.style.display =
                 "none";
         };
-
 
         card.appendChild(
             image
@@ -910,7 +908,6 @@ function createClassCard(classItem) {
         type.textContent =
             classItem.tipo;
 
-
         body.appendChild(
             type
         );
@@ -927,7 +924,6 @@ function createClassCard(classItem) {
     title.textContent =
         classItem.title ||
         "Actividad";
-
 
     body.appendChild(
         title
@@ -948,7 +944,6 @@ function createClassCard(classItem) {
 
         trainer.textContent =
             classItem.trainer;
-
 
         body.appendChild(
             trainer
@@ -973,7 +968,6 @@ function createClassCard(classItem) {
                 classItem.date
             );
 
-
         body.appendChild(
             date
         );
@@ -994,7 +988,6 @@ function createClassCard(classItem) {
 
         description.textContent =
             classItem.description;
-
 
         body.appendChild(
             description
@@ -1017,18 +1010,19 @@ function createClassCard(classItem) {
         Number(classItem.bookedCount || 0);
 
     let isFull = false;
-    let placesLeft = null;
 
 
     // ======================================
-    // MOSTRAR PLAZAS SOLO SI EXISTE CAPACIDAD
+    // MOSTRAR DISPONIBILIDAD
+    // SOLO SI HAY CAPACIDAD
     // ======================================
 
     if (hasLimitedCapacity) {
 
-        placesLeft =
+        const placesLeft =
             Math.max(
-                numericCapacity - bookedCount,
+                numericCapacity -
+                bookedCount,
                 0
             );
 
@@ -1037,6 +1031,7 @@ function createClassCard(classItem) {
 
         capacity.className =
             "availability";
+
 
         if (placesLeft <= 0) {
 
@@ -1059,6 +1054,7 @@ function createClassCard(classItem) {
                 }`;
         }
 
+
         body.appendChild(
             capacity
         );
@@ -1066,7 +1062,8 @@ function createClassCard(classItem) {
 
 
     // ======================================
-    // BOTÓN RESERVAR
+    // BOTÓN / ACCIÓN
+    // SOLO SI HAY CAPACIDAD
     // ======================================
 
     if (hasLimitedCapacity) {
@@ -1077,6 +1074,10 @@ function createClassCard(classItem) {
         actions.className =
             "card-actions";
 
+
+        // ==================================
+        // CLASE COMPLETA
+        // ==================================
 
         if (isFull) {
 
@@ -1099,6 +1100,10 @@ function createClassCard(classItem) {
                 button
             );
 
+
+        // ==================================
+        // RESERVABLE
+        // ==================================
 
         } else {
 
@@ -1131,164 +1136,8 @@ function createClassCard(classItem) {
 
 
     // ======================================
-    // TIENE NÚMERO DE PLAZAS
+    // FINAL
     // ======================================
-
-    if (hasLimitedCapacity) {
-
-        const placesLeft =
-            Math.max(
-                numericCapacity -
-                bookedCount,
-                0
-            );
-
-
-        if (placesLeft <= 0) {
-
-            isFull = true;
-
-
-            capacity.textContent =
-                "Clase completa";
-
-
-            capacity.classList.add(
-                "full"
-            );
-
-        } else {
-
-            capacity.textContent =
-                `${placesLeft} ${
-                    placesLeft === 1
-                        ? "plaza disponible"
-                        : "plazas disponibles"
-                }`;
-        }
-
-
-    } else {
-
-        // ==================================
-        // SIN NÚMERO DE PLAZAS
-        // NO SE PUEDE RESERVAR
-        // ==================================
-
-        capacity.textContent =
-            "No disponible para reserva";
-
-        capacity.classList.add(
-            "no-reservation"
-        );
-    }
-
-
-    body.appendChild(
-        capacity
-    );
-
-
-    // ======================================
-    // BOTÓN RESERVAR
-    // ======================================
-
-    const actions =
-        document.createElement("div");
-
-    actions.className =
-        "card-actions";
-
-
-    // ======================================
-    // CLASE COMPLETA
-    // ======================================
-
-    if (isFull) {
-
-        const button =
-            document.createElement("button");
-
-        button.type =
-            "button";
-
-        button.className =
-            "reserve";
-
-        button.disabled =
-            true;
-
-        button.textContent =
-            "Clase completa";
-
-
-        actions.appendChild(
-            button
-        );
-
-
-    // ======================================
-    // SIN CAPACIDAD
-    // ======================================
-
-    } else if (!hasLimitedCapacity) {
-
-        const button =
-            document.createElement("button");
-
-        button.type =
-            "button";
-
-        button.className =
-            "reserve reserve-disabled";
-
-        button.disabled =
-            true;
-
-        button.textContent =
-            "No disponible";
-
-
-        actions.appendChild(
-            button
-        );
-
-
-    // ======================================
-    // RESERVABLE
-    // ======================================
-
-    } else {
-
-        const reserveLink =
-            document.createElement("a");
-
-        reserveLink.className =
-            "reserve";
-
-
-        reserveLink.href =
-            `/reservar/${encodeURIComponent(
-                classItem.id
-            )}`;
-
-
-        reserveLink.innerHTML = `
-            Reservar plaza
-            <b>→</b>
-        `;
-
-
-        actions.appendChild(
-            reserveLink
-        );
-    }
-
-
-    body.appendChild(
-        actions
-    );
-
 
     card.appendChild(
         body
