@@ -1,6 +1,6 @@
 // ==========================================
 // FIREBASE
-// =========================================
+// ==========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 
@@ -487,68 +487,49 @@ async function loadClasses() {
 // la primera aparición en Google Sheets.
 // ==========================================
 
-// ==========================================
-// OBTENER HORARIOS
-// ==========================================
-//
-// Los horarios se agrupan por HORA DE INICIO.
-//
-// Ejemplo:
-//
-// 10:30-11:10  → 10:30
-// 10:30-12:00  → 10:30
-// 10:30-13:30  → 10:30
-//
-// 11:30-12:10  → 11:30
-//
-// 12:30-13:10  → 12:30
-//
-// El orden se mantiene según la primera
-// aparición en Google Sheets.
-// ==========================================
 function getSchedules(classes) {
 
-    // Orden que queremos mostrar SIEMPRE
-    const manualOrder = [
-        "09:45",
-        "10:30",
-        "11:30",
-        "12:30"
-    ];
+    const schedules = [];
 
-    // Obtener las horas que realmente tienen clases
-    const availableSchedules = [];
 
-    classes.forEach((classItem) => {
+    classes.forEach(
+        (classItem) => {
 
-        if (!classItem.time) {
-            return;
+            if (!classItem.time) {
+                return;
+            }
+
+
+            const normalizedTime =
+                normalizeTime(
+                    classItem.time
+                );
+
+
+            if (!normalizedTime) {
+                return;
+            }
+
+
+            if (
+                !schedules.includes(
+                    normalizedTime
+                )
+            ) {
+
+                schedules.push(
+                    normalizedTime
+                );
+
+            }
+
         }
-
-        const normalizedTime =
-            normalizeTime(classItem.time);
-
-        if (!normalizedTime) {
-            return;
-        }
-
-        const startTime =
-            normalizedTime.split("-")[0];
-
-        if (
-            startTime &&
-            !availableSchedules.includes(startTime)
-        ) {
-            availableSchedules.push(startTime);
-        }
-    });
-
-    // Devolver únicamente los horarios que existen
-    // y en el orden manual indicado arriba
-    return manualOrder.filter((schedule) =>
-        availableSchedules.includes(schedule)
     );
+
+
+    return schedules;
 }
+
 
 // ==========================================
 // RENDERIZAR HORARIOS
