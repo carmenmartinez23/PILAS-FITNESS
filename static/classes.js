@@ -487,53 +487,49 @@ async function loadClasses() {
 // la primera aparición en Google Sheets.
 // ==========================================
 
-// ==========================================
-// OBTENER HORARIOS
-// ==========================================
-//
-// Los horarios se agrupan por HORA DE INICIO.
-//
-// Ejemplo:
-//
-// 10:30-11:10  → 10:30
-// 10:30-12:00  → 10:30
-// 10:30-13:30  → 10:30
-//
-// 11:30-12:10  → 11:30
-//
-// 12:30-13:10  → 12:30
-//
-// El orden se mantiene según la primera
-// aparición en Google Sheets.
-// ==========================================
 function getSchedules(classes) {
+
     const schedules = [];
 
-    classes.forEach((classItem) => {
-        if (!classItem.time) {
-            return;
+
+    classes.forEach(
+        (classItem) => {
+
+            if (!classItem.time) {
+                return;
+            }
+
+
+            const normalizedTime =
+                normalizeTime(
+                    classItem.time
+                );
+
+
+            if (!normalizedTime) {
+                return;
+            }
+
+
+            if (
+                !schedules.includes(
+                    normalizedTime
+                )
+            ) {
+
+                schedules.push(
+                    normalizedTime
+                );
+
+            }
+
         }
+    );
 
-        const normalizedTime = normalizeTime(classItem.time);
-
-        if (!normalizedTime) {
-            return;
-        }
-
-        // Obtener solamente la hora de inicio
-        const startTime = normalizedTime.split("-")[0];
-
-        if (!startTime) {
-            return;
-        }
-
-        if (!schedules.includes(startTime)) {
-            schedules.push(startTime);
-        }
-    });
 
     return schedules;
 }
+
 
 // ==========================================
 // RENDERIZAR HORARIOS
