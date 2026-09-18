@@ -7,9 +7,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
     getFirestore,
     collection,
-    getDocs,
-    query,
-    orderBy
+    getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -82,7 +80,6 @@ function parseDate(dateValue) {
 
     const value = String(dateValue).trim();
 
-
     // --------------------------------------
     // DD/MM/YYYY
     // --------------------------------------
@@ -103,14 +100,12 @@ function parseDate(dateValue) {
         const year =
             Number(europeanMatch[3]);
 
-
         const date =
             new Date(
                 year,
                 month - 1,
                 day
             );
-
 
         if (
             date.getFullYear() === year &&
@@ -144,14 +139,12 @@ function parseDate(dateValue) {
         const day =
             Number(isoMatch[3]);
 
-
         const date =
             new Date(
                 year,
                 month - 1,
                 day
             );
-
 
         if (
             date.getFullYear() === year &&
@@ -163,7 +156,6 @@ function parseDate(dateValue) {
 
         return null;
     }
-
 
     return null;
 }
@@ -226,18 +218,18 @@ async function loadClasses() {
         // LEER FIRESTORE
         // --------------------------------------
 
-        const snapshot = await getDocs(collection(db, "classes"));
-
-        console.log("Clases encontradas en Firestore:", snapshot.size);
-
-
-        const classes = [];
-
+        const snapshot =
+            await getDocs(
+                collection(db, "classes")
+            );
 
         console.log(
             "Clases encontradas en Firestore:",
             snapshot.size
         );
+
+
+        const classes = [];
 
 
         // ======================================
@@ -265,7 +257,6 @@ async function loadClasses() {
 
             let capacity = null;
 
-
             if (
                 data.capacity !== null &&
                 data.capacity !== undefined &&
@@ -275,12 +266,10 @@ async function loadClasses() {
                 const parsedCapacity =
                     Number(data.capacity);
 
-
                 if (
                     Number.isFinite(parsedCapacity) &&
                     parsedCapacity > 0
                 ) {
-
                     capacity =
                         parsedCapacity;
                 }
@@ -294,7 +283,6 @@ async function loadClasses() {
             let orden =
                 Number.MAX_SAFE_INTEGER;
 
-
             if (
                 data.orden !== undefined &&
                 data.orden !== null &&
@@ -304,11 +292,9 @@ async function loadClasses() {
                 const parsedOrden =
                     Number(data.orden);
 
-
                 if (
                     Number.isFinite(parsedOrden)
                 ) {
-
                     orden =
                         parsedOrden;
                 }
@@ -459,7 +445,9 @@ function getSchedules(classes) {
 
 
         const normalizedTime =
-            normalizeTime(classItem.time);
+            normalizeTime(
+                classItem.time
+            );
 
 
         if (!normalizedTime) {
@@ -531,19 +519,15 @@ function renderSchedules(classes) {
     const heading =
         document.createElement("div");
 
-
     heading.className =
         "schedule-heading";
 
-
     heading.innerHTML = `
         <h3>Horarios</h3>
-
         <p>
             Selecciona un horario para ver las actividades disponibles.
         </p>
     `;
-
 
     schedulesSection.appendChild(
         heading
@@ -556,7 +540,6 @@ function renderSchedules(classes) {
 
     const buttonsContainer =
         document.createElement("div");
-
 
     buttonsContainer.className =
         "schedule-buttons";
@@ -572,7 +555,6 @@ function renderSchedules(classes) {
             const scheduleItem =
                 document.createElement("div");
 
-
             scheduleItem.className =
                 "schedule-item";
 
@@ -584,14 +566,11 @@ function renderSchedules(classes) {
             const button =
                 document.createElement("button");
 
-
             button.type =
                 "button";
 
-
             button.className =
                 "schedule-button";
-
 
             button.innerHTML = `
                 <span>
@@ -610,7 +589,6 @@ function renderSchedules(classes) {
 
             const content =
                 document.createElement("div");
-
 
             content.className =
                 "schedule-item-content";
@@ -736,16 +714,13 @@ function renderSchedules(classes) {
                 button
             );
 
-
             scheduleItem.appendChild(
                 content
             );
 
-
             buttonsContainer.appendChild(
                 scheduleItem
             );
-
         }
     );
 
@@ -766,14 +741,12 @@ function renderSchedules(classes) {
         const noScheduleWrapper =
             document.createElement("div");
 
-
         noScheduleWrapper.className =
             "no-schedule-section";
 
 
         const noScheduleTitle =
             document.createElement("h3");
-
 
         noScheduleTitle.textContent =
             "Información y actividades";
@@ -787,7 +760,6 @@ function renderSchedules(classes) {
         const noScheduleGrid =
             document.createElement("div");
 
-
         noScheduleGrid.className =
             "class-grid-inner";
 
@@ -800,7 +772,6 @@ function renderSchedules(classes) {
                         classItem
                     )
                 );
-
             }
         );
 
@@ -845,7 +816,6 @@ function renderClassesIntoContainer(
     const grid =
         document.createElement("div");
 
-
     grid.className =
         "class-grid-inner";
 
@@ -858,7 +828,6 @@ function renderClassesIntoContainer(
                     classItem
                 )
             );
-
         }
     );
 
@@ -878,7 +847,6 @@ function createClassCard(classItem) {
     const card =
         document.createElement("article");
 
-
     card.className =
         "class-card";
 
@@ -892,22 +860,21 @@ function createClassCard(classItem) {
         const image =
             document.createElement("img");
 
-
         image.src =
             classItem.imageUrl;
-
 
         image.alt =
             classItem.title ||
             "Actividad";
-
 
         image.loading =
             "lazy";
 
 
         image.onerror = () => {
-            image.style.display = "none";
+
+            image.style.display =
+                "none";
         };
 
 
@@ -924,7 +891,6 @@ function createClassCard(classItem) {
     const body =
         document.createElement("div");
 
-
     body.className =
         "card-body";
 
@@ -938,10 +904,8 @@ function createClassCard(classItem) {
         const type =
             document.createElement("div");
 
-
         type.className =
             "class-type";
-
 
         type.textContent =
             classItem.tipo;
@@ -960,7 +924,6 @@ function createClassCard(classItem) {
     const title =
         document.createElement("h4");
 
-
     title.textContent =
         classItem.title ||
         "Actividad";
@@ -972,7 +935,7 @@ function createClassCard(classItem) {
 
 
     // ======================================
-    // CENTRO / ENTRENADOR
+    // ENTRENADOR
     // ======================================
 
     if (classItem.trainer) {
@@ -980,10 +943,8 @@ function createClassCard(classItem) {
         const trainer =
             document.createElement("div");
 
-
         trainer.className =
             "class-trainer";
-
 
         trainer.textContent =
             classItem.trainer;
@@ -1004,10 +965,8 @@ function createClassCard(classItem) {
         const date =
             document.createElement("div");
 
-
         date.className =
             "class-date";
-
 
         date.textContent =
             formatDate(
@@ -1030,10 +989,8 @@ function createClassCard(classItem) {
         const description =
             document.createElement("div");
 
-
         description.className =
             "class-description";
-
 
         description.textContent =
             classItem.description;
@@ -1051,7 +1008,6 @@ function createClassCard(classItem) {
 
     const capacity =
         document.createElement("div");
-
 
     capacity.className =
         "availability";
@@ -1074,6 +1030,10 @@ function createClassCard(classItem) {
 
     let isFull = false;
 
+
+    // ======================================
+    // TIENE NÚMERO DE PLAZAS
+    // ======================================
 
     if (hasLimitedCapacity) {
 
@@ -1108,10 +1068,20 @@ function createClassCard(classItem) {
                 }`;
         }
 
+
     } else {
 
+        // ==================================
+        // SIN NÚMERO DE PLAZAS
+        // NO SE PUEDE RESERVAR
+        // ==================================
+
         capacity.textContent =
-            "Plazas disponibles";
+            "No disponible para reserva";
+
+        capacity.classList.add(
+            "no-reservation"
+        );
     }
 
 
@@ -1127,28 +1097,27 @@ function createClassCard(classItem) {
     const actions =
         document.createElement("div");
 
-
     actions.className =
         "card-actions";
 
+
+    // ======================================
+    // CLASE COMPLETA
+    // ======================================
 
     if (isFull) {
 
         const button =
             document.createElement("button");
 
-
         button.type =
             "button";
-
 
         button.className =
             "reserve";
 
-
         button.disabled =
             true;
-
 
         button.textContent =
             "Clase completa";
@@ -1158,11 +1127,42 @@ function createClassCard(classItem) {
             button
         );
 
+
+    // ======================================
+    // SIN CAPACIDAD
+    // ======================================
+
+    } else if (!hasLimitedCapacity) {
+
+        const button =
+            document.createElement("button");
+
+        button.type =
+            "button";
+
+        button.className =
+            "reserve reserve-disabled";
+
+        button.disabled =
+            true;
+
+        button.textContent =
+            "No disponible";
+
+
+        actions.appendChild(
+            button
+        );
+
+
+    // ======================================
+    // RESERVABLE
+    // ======================================
+
     } else {
 
         const reserveLink =
             document.createElement("a");
-
 
         reserveLink.className =
             "reserve";
