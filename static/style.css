@@ -1158,3 +1158,28 @@ gap: 10px;
         font-size: 0.68rem;
     }
 }
+
+.schedule-item {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.schedule-item-content {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.schedule-item-content.open {
+    display: block;
+}
+
+.schedule-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.schedule-button {
+    width: 100%;
+}
