@@ -1064,7 +1064,7 @@ text-underline-offset: 4px;
 .class-grid-inner {
 display: grid;
 grid-template-columns: repeat(3, 1fr);
-gap: 20px;
+gap: 10px;
 }
 
 /* MÓVIL */
