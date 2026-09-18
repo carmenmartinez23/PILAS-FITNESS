@@ -5,6 +5,12 @@ import {
     collection,
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+import {
+    getFunctions,
+    httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+
 import { firebaseConfig } from "./firebase-config.js";
 
 
@@ -20,6 +26,12 @@ const functions = getFunctions(
     app,
     "us-central1"
 );
+
+const syncClassesFunction = httpsCallable(
+    functions,
+    "syncClassesFromSheets"
+);
+
 
 /* =========================================================
    ELEMENTOS
@@ -65,28 +77,52 @@ let selectedSchedule = null;
 async function loadClasses() {
 
     try {
+
+        /*
+         * Google Sheets es la fuente principal.
+         * Primero sincronizamos y después leemos Firestore.
+         */
+
+        await syncClassesFunction();
+
+
         const snapshot = await getDocs(
             collection(db, "classes")
         );
+
+
         allClasses = [];
+
+
         snapshot.forEach(doc => {
+
             const data = doc.data();
+
+
             /*
              * No mostramos clases desactivadas.
              */
+
             if (data.activa === false) {
                 return;
             }
+
+
             allClasses.push({
                 id: doc.id,
                 ...data
             });
+
         });
+
+
         /*
          * Ordenamos primero por fecha
          * y después por hora.
          */
+
         allClasses.sort((a, b) => {
+
             const dateA =
                 `${a.date || ""} ${normalizeTime(a.time)}`;
 
@@ -94,13 +130,21 @@ async function loadClasses() {
                 `${b.date || ""} ${normalizeTime(b.time)}`;
 
             return dateA.localeCompare(dateB);
+
         });
+
+
         renderSchedules();
+
+
     } catch (error) {
+
         console.error(
             "Error cargando las clases:",
             error
         );
+
+
         if (classGrid) {
 
             classGrid.innerHTML = `
@@ -126,6 +170,7 @@ async function loadClasses() {
     }
 
 }
+
 
 /* =========================================================
    NORMALIZAR HORARIOS
