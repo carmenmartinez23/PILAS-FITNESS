@@ -1529,14 +1529,16 @@ exports.reserveClass =
                 );
 
             if (
+                capacity !== null &&
+                capacity !== undefined &&
                 bookedCount >= capacity
             ) {
-
                 throw new HttpsError(
                     "resource-exhausted",
                     "Lo sentimos, la clase está completa."
                 );
             }
+
 
             // -----------------------------------------
             // 16. CREAR RESERVA
