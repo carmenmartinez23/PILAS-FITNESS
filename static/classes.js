@@ -1,1192 +1,959 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+// ==========================================
+// FIREBASE
+// ==========================================
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
     getFirestore,
     collection,
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-import { firebaseConfig } from "./firebase-config.js";
-
-/* =========================================================
-   FIREBASE
-   ========================================================= */
+const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_AUTH_DOMAIN",
+    projectId: "TU_PROJECT_ID",
+    storageBucket: "TU_STORAGE_BUCKET",
+    messagingSenderId: "TU_MESSAGING_SENDER_ID",
+    appId: "TU_APP_ID"
+};
 
 const app = initializeApp(firebaseConfig);
-
 const db = getFirestore(app);
 
-/* =========================================================
-   ELEMENTOS
-   ========================================================= */
 
-const schedulesSection =
-    document.getElementById("class-schedules");
+// ==========================================
+// ELEMENTOS
+// ==========================================
 
-/* =========================================================
-   HORARIOS PRINCIPALES
-   ========================================================= */
+const schedulesSection = document.getElementById("class-schedules");
 
-const MAIN_SCHEDULES = [
-    {
-        id: "10:30-11:10",
-        label: "10:30-11:10"
-    },
-    {
-        id: "11:30-12:10",
-        label: "11:30-12:10"
-    },
-    {
-        id: "12:30-13:10",
-        label: "12:30-13:10"
-    }
-];
 
-/* =========================================================
-   VARIABLES
-   ========================================================= */
+// ==========================================
+// VARIABLES
+// ==========================================
 
 let allClasses = [];
-let selectedSchedule = null;
 
-/* =========================================================
-   CARGAR CLASES
-   ========================================================= */
+
+// ==========================================
+// UTILIDADES
+// ==========================================
+
+function normalizeTime(time) {
+    if (!time) return "";
+
+    return String(time)
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/[–—]/g, "-");
+}
+
+
+// ------------------------------------------
+// Convierte una fecha a Date
+// Acepta:
+// 04/10/2026
+// 4/10/2026
+// 2026-10-04
+// ------------------------------------------
+
+function parseDate(dateValue) {
+    if (!dateValue) return null;
+
+    const value = String(dateValue).trim();
+
+    // dd/mm/yyyy
+    const europeanMatch = value.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+    );
+
+    if (europeanMatch) {
+        const day = Number(europeanMatch[1]);
+        const month = Number(europeanMatch[2]) - 1;
+        const year = Number(europeanMatch[3]);
+
+        const date = new Date(year, month, day);
+
+        if (!Number.isNaN(date.getTime())) {
+            return date;
+        }
+    }
+
+    // yyyy-mm-dd
+    const isoMatch = value.match(
+        /^(\d{4})-(\d{1,2})-(\d{1,2})$/
+    );
+
+    if (isoMatch) {
+        const year = Number(isoMatch[1]);
+        const month = Number(isoMatch[2]) - 1;
+        const day = Number(isoMatch[3]);
+
+        const date = new Date(year, month, day);
+
+        if (!Number.isNaN(date.getTime())) {
+            return date;
+        }
+    }
+
+    return null;
+}
+
+
+// ------------------------------------------
+// Formato bonito de fecha
+// Ejemplo:
+// 04/10/2026
+// ↓
+// 4 de octubre de 2026
+// ------------------------------------------
+
+function formatDate(dateValue) {
+    const date = parseDate(dateValue);
+
+    if (!date) {
+        return dateValue || "";
+    }
+
+    return new Intl.DateTimeFormat("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+    }).format(date);
+}
+
+
+// ------------------------------------------
+// Convierte hora a minutos para comparar
+// ------------------------------------------
+
+function timeToMinutes(time) {
+    if (!time) return Number.MAX_SAFE_INTEGER;
+
+    const normalized = normalizeTime(time);
+
+    const match = normalized.match(/^(\d{1,2}):(\d{2})/);
+
+    if (!match) {
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+
+    return hours * 60 + minutes;
+}
+
+
+// ==========================================
+// CARGAR CLASES DESDE FIRESTORE
+// ==========================================
 
 async function loadClasses() {
-
     try {
+        if (!schedulesSection) {
+            console.error(
+                "No se encontró el elemento #class-schedules"
+            );
+            return;
+        }
+
+        schedulesSection.innerHTML = `
+            <div class="loading-classes">
+                Cargando clases...
+            </div>
+        `;
 
         /*
-         * Firestore contiene las clases ya sincronizadas
-         * automáticamente desde Google Sheets.
+         * IMPORTANTE:
          *
-         * No hacemos una sincronización manual aquí para
-         * evitar ralentizar la página.
+         * Ya NO hacemos:
+         *
+         * await syncClassesFunction();
+         *
+         * Las clases se sincronizan automáticamente
+         * desde Google Sheets mediante Firebase Functions.
+         *
+         * Aquí solamente leemos Firestore.
          */
 
         const snapshot = await getDocs(
             collection(db, "classes")
         );
 
-        allClasses = [];
+        const classes = [];
 
-        snapshot.forEach(doc => {
-
+        snapshot.forEach((doc) => {
             const data = doc.data();
 
-            /*
-             * No mostramos clases desactivadas.
-             */
-
+            // Las clases desactivadas no se muestran.
             if (data.activa === false) {
                 return;
             }
 
-            allClasses.push({
-                id: doc.id,
-                ...data
+            classes.push({
+                id: String(data.id ?? doc.id),
+                title: String(data.title ?? "").trim(),
+                trainer: String(data.trainer ?? "").trim(),
+                date: String(data.date ?? "").trim(),
+                time: String(data.time ?? "").trim(),
+                duration: Number(data.duration ?? 0),
+                capacity:
+                    data.capacity === null ||
+                    data.capacity === undefined ||
+                    data.capacity === ""
+                        ? null
+                        : Number(data.capacity),
+                description: String(
+                    data.description ?? ""
+                ).trim(),
+                imageUrl: String(
+                    data.imageUrl ?? ""
+                ).trim(),
+                activa: data.activa !== false,
+
+                // NUEVO
+                tipo: String(
+                    data.tipo ?? ""
+                ).trim(),
+
+                /*
+                 * Este campo viene del backend y representa
+                 * la posición de la fila en Google Sheets.
+                 *
+                 * Así podemos mantener EXACTAMENTE el orden
+                 * del Sheet.
+                 */
+                orden:
+                    data.orden !== undefined &&
+                    data.orden !== null
+                        ? Number(data.orden)
+                        : Number.MAX_SAFE_INTEGER,
+
+                bookedCount: Number(
+                    data.bookedCount ?? 0
+                )
             });
         });
 
-        /*
-         * Ordenamos primero por fecha y después por hora.
-         */
 
-        allClasses.sort((a, b) => {
+        // ==========================================
+        // ORDEN EXACTO DEL GOOGLE SHEET
+        // ==========================================
 
-            const dateA =
-                `${a.date || ""} ${normalizeTime(a.time)}`;
-
-            const dateB =
-                `${b.date || ""} ${normalizeTime(b.time)}`;
-
-            return dateA.localeCompare(dateB);
+        classes.sort((a, b) => {
+            return a.orden - b.orden;
         });
 
-        renderSchedules();
+
+        allClasses = classes;
+
+        renderSchedules(allClasses);
 
     } catch (error) {
-
         console.error(
             "Error cargando las clases:",
             error
         );
 
         if (schedulesSection) {
-
             schedulesSection.innerHTML = `
-                <div class="schedule-empty">
-
-                    <p class="eyebrow">
-                        ERROR
-                    </p>
-
-                    <h3>
-                        No se han podido cargar las clases.
-                    </h3>
-
-                    <p>
-                        Inténtalo de nuevo.
-                    </p>
-
+                <div class="classes-error">
+                    No se han podido cargar las clases.
                 </div>
             `;
         }
     }
 }
 
-/* =========================================================
-   NORMALIZAR HORARIOS
-   ========================================================= */
 
-function normalizeTime(value) {
+// ==========================================
+// OBTENER HORARIOS
+// ==========================================
+function getSchedules(classes) {
+    const schedules = [];
 
-    if (
-        value === undefined ||
-        value === null
-    ) {
-        return "";
-    }
+    classes.forEach((classItem) => {
+        if (!classItem.time) return;
 
-    let time = String(value).trim();
+        const normalizedTime = normalizeTime(classItem.time);
 
-    if (!time) {
-        return "";
-    }
+        if (!normalizedTime) return;
 
-    /*
-     * 10,30 → 10:30
-     */
-
-    time = time.replace(
-        /(\d{1,2}),(\d{2})/g,
-        "$1:$2"
-    );
-
-    /*
-     * Quitamos espacios.
-     */
-
-    time = time.replace(
-        /\s/g,
-        ""
-    );
-
-    /*
-     * Normalizamos guiones.
-     */
-
-    time = time.replace(/–/g, "-");
-    time = time.replace(/—/g, "-");
-
-    return time;
-}
-
-/* =========================================================
-   OBTENER TODOS LOS HORARIOS
-   ========================================================= */
-
-function getAvailableSchedules() {
-
-    const schedules = new Map();
-
-    allClasses.forEach(classItem => {
-
-        const normalized =
-            normalizeTime(classItem.time);
-
-        /*
-         * Las clases sin horario no entran aquí.
-         */
-
-        if (!normalized) {
-            return;
-        }
-
-        if (!schedules.has(normalized)) {
-
-            schedules.set(
-                normalized,
-                {
-                    id: normalized,
-                    label: normalized
-                }
-            );
+        if (!schedules.includes(normalizedTime)) {
+            schedules.push(normalizedTime);
         }
     });
 
-    return Array.from(
-        schedules.values()
-    );
+    return schedules;
 }
 
-/* =========================================================
-   OBTENER HORARIOS PRINCIPALES
-   ========================================================= */
+// ==========================================
+// RENDERIZAR HORARIOS
+// ==========================================
 
-function getMainSchedules() {
+function renderSchedules(classes) {
+    if (!schedulesSection) return;
 
-    return MAIN_SCHEDULES.filter(
-        schedule => {
+    schedulesSection.innerHTML = "";
 
-            return allClasses.some(
-                classItem =>
+    const schedules = getSchedules(classes);
+
+    const classesWithoutTime = classes.filter(
+        (classItem) => !classItem.time
+    );
+
+
+    // ==========================================
+    // CABECERA
+    // ==========================================
+
+    const heading = document.createElement("div");
+
+    heading.className = "schedule-heading";
+
+    heading.innerHTML = `
+        <h3>Horarios</h3>
+        <p>Selecciona un horario para ver las actividades disponibles.</p>
+    `;
+
+    schedulesSection.appendChild(heading);
+
+
+    // ==========================================
+    // CONTENEDOR DE HORARIOS
+    // ==========================================
+
+    const buttonsContainer =
+        document.createElement("div");
+
+    buttonsContainer.className = "schedule-buttons";
+
+    schedules.forEach((schedule) => {
+
+        const scheduleItem =
+            document.createElement("div");
+
+        scheduleItem.className = "schedule-item";
+
+
+        // ------------------------------------------
+        // Botón del horario
+        // ------------------------------------------
+
+        const button =
+            document.createElement("button");
+
+        button.type = "button";
+        button.className = "schedule-button";
+
+        button.innerHTML = `
+            <span>${schedule}</span>
+            <small>
+                Ver actividades de este horario
+            </small>
+        `;
+
+
+        // ------------------------------------------
+        // Contenido
+        // ------------------------------------------
+
+        const content =
+            document.createElement("div");
+
+        content.className =
+            "schedule-item-content";
+
+
+        /*
+         * MUY IMPORTANTE:
+         *
+         * NO hacemos sort aquí.
+         *
+         * Filtramos las clases y conservamos
+         * el orden que ya tienen según "orden".
+         */
+
+        const scheduleClasses =
+            classes.filter((classItem) => {
+
+                return (
                     normalizeTime(
                         classItem.time
-                    ) === schedule.id
-            );
-        }
-    );
-}
-
-/* =========================================================
-   OBTENER OTROS HORARIOS
-   ========================================================= */
-
-function getOtherSchedules() {
-
-    const mainIds =
-        MAIN_SCHEDULES.map(
-            schedule => schedule.id
-        );
-
-    const schedules =
-        getAvailableSchedules();
-
-    return schedules
-        .filter(
-            schedule =>
-                !mainIds.includes(
-                    schedule.id
-                )
-        )
-        .sort(
-            (a, b) =>
-                a.id.localeCompare(b.id)
-        );
-}
-
-/* =========================================================
-   OBTENER CLASES DE UN HORARIO
-   ========================================================= */
-
-function getClassesForSchedule(schedule) {
-
-    return allClasses.filter(
-        classItem => {
-
-            const classTime =
-                normalizeTime(
-                    classItem.time
+                    ) === schedule
                 );
 
-            return (
-                classTime === schedule.id
-            );
-        }
-    );
-}
+            });
 
-/* =========================================================
-   OBTENER CLASES SIN HORARIO
-   ========================================================= */
-
-function getClassesWithoutSchedule() {
-
-    return allClasses.filter(
-        classItem => {
-
-            return !normalizeTime(
-                classItem.time
-            );
-        }
-    );
-}
-
-/* =========================================================
-   NORMALIZAR TIPO
-   ========================================================= */
-
-function normalizeType(value) {
-
-    const type =
-        String(value || "")
-            .trim()
-            .toUpperCase();
-
-    if (type === "CLÍNICO" || type === "CLINICO") {
-        return "CLÍNICO";
-    }
-
-    if (type === "DEPORTIVO") {
-        return "DEPORTIVO";
-    }
-
-    return "OTROS";
-}
-
-/* =========================================================
-   CREAR BOTÓN DE HORARIO
-   ========================================================= */
-
-function createScheduleButton(schedule) {
-
-    const classesForSchedule =
-        getClassesForSchedule(schedule);
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "schedule-item";
-
-    /* =====================================================
-       BOTÓN
-       ===================================================== */
-
-    const button =
-        document.createElement("button");
-
-    button.type = "button";
-
-    button.className =
-        "schedule-button";
-
-    const isSelected =
-        selectedSchedule === schedule.id;
-
-    if (isSelected) {
-        button.classList.add("selected");
-    }
-
-    button.innerHTML = `
-        <span>
-            ${schedule.label}
-        </span>
-
-        <small>
-            ${classesForSchedule.length}
-            ${
-                classesForSchedule.length === 1
-                    ? "actividad"
-                    : "actividades"
-            }
-        </small>
-
-        <b>
-            ${isSelected ? "↓" : "→"}
-        </b>
-    `;
-
-    /* =====================================================
-       CONTENIDO
-       ===================================================== */
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "schedule-item-content";
-
-    if (isSelected) {
-
-        content.classList.add("open");
 
         renderClassesIntoContainer(
-            classesForSchedule,
-            content,
-            schedule.label
+            scheduleClasses,
+            content
         );
-    }
 
-    /* =====================================================
-       CLICK
-       ===================================================== */
 
-    button.addEventListener(
-        "click",
-        () => {
+        // ------------------------------------------
+        // Abrir / cerrar
+        // ------------------------------------------
 
-            if (
-                selectedSchedule ===
-                schedule.id
-            ) {
-                selectedSchedule = null;
-            } else {
-                selectedSchedule =
-                    schedule.id;
+        button.addEventListener(
+            "click",
+            () => {
+
+                const isOpen =
+                    content.classList.contains("open");
+
+
+                // Cerramos todos los demás
+                document
+                    .querySelectorAll(
+                        ".schedule-item-content.open"
+                    )
+                    .forEach((element) => {
+
+                        if (element !== content) {
+                            element.classList.remove(
+                                "open"
+                            );
+                        }
+
+                    });
+
+
+                document
+                    .querySelectorAll(
+                        ".schedule-button.selected"
+                    )
+                    .forEach((element) => {
+
+                        if (element !== button) {
+                            element.classList.remove(
+                                "selected"
+                            );
+                        }
+
+                    });
+
+
+                if (isOpen) {
+
+                    content.classList.remove(
+                        "open"
+                    );
+
+                    button.classList.remove(
+                        "selected"
+                    );
+
+                } else {
+
+                    content.classList.add(
+                        "open"
+                    );
+
+                    button.classList.add(
+                        "selected"
+                    );
+
+                }
+
             }
+        );
 
-            renderSchedules();
-        }
+
+        scheduleItem.appendChild(button);
+        scheduleItem.appendChild(content);
+
+        buttonsContainer.appendChild(
+            scheduleItem
+        );
+
+    });
+
+
+    schedulesSection.appendChild(
+        buttonsContainer
     );
 
-    wrapper.appendChild(button);
-    wrapper.appendChild(content);
 
-    return wrapper;
+    // ==========================================
+    // ACTIVIDADES SIN HORARIO
+    // ==========================================
+
+    if (classesWithoutTime.length > 0) {
+
+        const noScheduleWrapper =
+            document.createElement("div");
+
+        noScheduleWrapper.className =
+            "no-schedule-section";
+
+
+        const noScheduleTitle =
+            document.createElement("h3");
+
+        noScheduleTitle.textContent =
+            "Información y actividades";
+
+        noScheduleWrapper.appendChild(
+            noScheduleTitle
+        );
+
+
+        const noScheduleGrid =
+            document.createElement("div");
+
+        noScheduleGrid.className =
+            "class-grid-inner";
+
+
+        /*
+         * Tampoco ordenamos aquí.
+         *
+         * classesWithoutTime conserva el orden
+         * original de "classes".
+         */
+
+        classesWithoutTime.forEach(
+            (classItem) => {
+
+                noScheduleGrid.appendChild(
+                    createClassCard(classItem)
+                );
+
+            }
+        );
+
+
+        noScheduleWrapper.appendChild(
+            noScheduleGrid
+        );
+
+        schedulesSection.appendChild(
+            noScheduleWrapper
+        );
+
+    }
 }
 
-/* =========================================================
-   CREAR BOTÓN DE ACTIVIDADES SIN HORARIO
-   ========================================================= */
 
-function createNoScheduleButton(
-    classesWithoutSchedule
+// ==========================================
+// RENDERIZAR CLASES
+// ==========================================
+
+function renderClassesIntoContainer(
+    classes,
+    container
 ) {
 
-    const wrapper =
-        document.createElement("div");
+    container.innerHTML = "";
 
-    wrapper.className =
-        "schedule-item";
+    if (!classes.length) {
 
-    const button =
-        document.createElement("button");
-
-    button.type = "button";
-
-    button.className =
-        "schedule-button no-schedule-button";
-
-    const isSelected =
-        selectedSchedule === "__NO_SCHEDULE__";
-
-    if (isSelected) {
-        button.classList.add("selected");
-    }
-
-    button.innerHTML = `
-        <span>
-            Actividades sin horario
-        </span>
-
-        <small>
-            ${classesWithoutSchedule.length}
-            ${
-                classesWithoutSchedule.length === 1
-                    ? "actividad"
-                    : "actividades"
-            }
-        </small>
-
-        <b>
-            ${isSelected ? "↓" : "→"}
-        </b>
-    `;
-
-    const content =
-        document.createElement("div");
-
-    content.className =
-        "schedule-item-content";
-
-    if (isSelected) {
-
-        content.classList.add("open");
-
-        renderClassesIntoContainer(
-            classesWithoutSchedule,
-            content,
-            "Actividades sin horario"
-        );
-    }
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            if (
-                selectedSchedule ===
-                "__NO_SCHEDULE__"
-            ) {
-                selectedSchedule = null;
-            } else {
-                selectedSchedule =
-                    "__NO_SCHEDULE__";
-            }
-
-            renderSchedules();
-        }
-    );
-
-    wrapper.appendChild(button);
-    wrapper.appendChild(content);
-
-    return wrapper;
-}
-
-/* =========================================================
-   RENDERIZAR TODOS LOS HORARIOS
-   ========================================================= */
-
-function renderSchedules() {
-
-    const section =
-        document.getElementById(
-            "class-schedules"
-        );
-
-    if (!section) {
-
-        console.error(
-            "No existe el elemento #class-schedules."
-        );
+        container.innerHTML = `
+            <div class="no-classes">
+                No hay actividades disponibles
+                en este horario.
+            </div>
+        `;
 
         return;
     }
 
-    section.innerHTML = "";
 
-    /* =====================================================
-       CABECERA
-       ===================================================== */
-
-    const heading =
+    const grid =
         document.createElement("div");
 
-    heading.className =
-        "schedule-heading";
-
-    heading.innerHTML = `
-        <p class="eyebrow">
-            ELIGE TU HORARIO
-        </p>
-
-        <h3>
-            Horarios y actividades
-        </h3>
-    `;
-
-    section.appendChild(heading);
-
-    /* =====================================================
-       HORARIOS PRINCIPALES
-       ===================================================== */
-
-    const mainSchedules =
-        getMainSchedules();
-
-    if (mainSchedules.length > 0) {
-
-        const mainTitle =
-            document.createElement("p");
-
-        mainTitle.className =
-            "schedule-group-title";
-
-        mainTitle.textContent =
-            "HORARIOS PRINCIPALES";
-
-        section.appendChild(mainTitle);
-
-        const mainContainer =
-            document.createElement("div");
-
-        mainContainer.className =
-            "schedule-buttons";
-
-        mainSchedules.forEach(
-            schedule => {
-
-                mainContainer.appendChild(
-                    createScheduleButton(
-                        schedule
-                    )
-                );
-            }
-        );
-
-        section.appendChild(
-            mainContainer
-        );
-    }
-
-    /* =====================================================
-       OTROS HORARIOS
-       ===================================================== */
-
-    const otherSchedules =
-        getOtherSchedules();
-
-    if (otherSchedules.length > 0) {
-
-        const otherTitle =
-            document.createElement("p");
-
-        otherTitle.className =
-            "schedule-group-title other-schedule-title";
-
-        otherTitle.textContent =
-            "OTROS HORARIOS";
-
-        section.appendChild(
-            otherTitle
-        );
-
-        const otherContainer =
-            document.createElement("div");
-
-        otherContainer.className =
-            "schedule-buttons";
-
-        otherSchedules.forEach(
-            schedule => {
-
-                otherContainer.appendChild(
-                    createScheduleButton(
-                        schedule
-                    )
-                );
-            }
-        );
-
-        section.appendChild(
-            otherContainer
-        );
-    }
-
-    /* =====================================================
-       ACTIVIDADES SIN HORARIO
-       ===================================================== */
-
-    const classesWithoutSchedule =
-        getClassesWithoutSchedule();
-
-    if (
-        classesWithoutSchedule.length > 0
-    ) {
-
-        const noScheduleTitle =
-            document.createElement("p");
-
-        noScheduleTitle.className =
-            "schedule-group-title no-schedule-title";
-
-        noScheduleTitle.textContent =
-            "INFORMACIÓN / ACTIVIDADES SIN HORARIO";
-
-        section.appendChild(
-            noScheduleTitle
-        );
-
-        const noScheduleContainer =
-            document.createElement("div");
-
-        noScheduleContainer.className =
-            "schedule-buttons";
-
-        noScheduleContainer.appendChild(
-            createNoScheduleButton(
-                classesWithoutSchedule
-            )
-        );
-
-        section.appendChild(
-            noScheduleContainer
-        );
-    }
-}
-
-/* =========================================================
-   CREAR SECCIÓN DE TIPO
-   ========================================================= */
-
-function createTypeSection(
-    type,
-    classes
-) {
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "class-type-section";
-
-    const title =
-        document.createElement("div");
-
-    title.className =
-        "class-type-title";
-
-    wrapper.appendChild(title);
-
-    const cards =
-        document.createElement("div");
-
-    cards.className =
+    grid.className =
         "class-grid-inner";
 
-    classes.forEach(
-        classItem => {
-
-            cards.appendChild(
-                createClassCard(
-                    classItem
-                )
-            );
-        }
-    );
-
-    wrapper.appendChild(cards);
-
-    return wrapper;
-}
-
-/* =========================================================
-   CREAR TARJETA DE CLASE
-   ========================================================= */
-
-function createClassCard(classItem) {
 
     /*
-     * Si capacity es un número positivo,
-     * la clase tiene plazas limitadas.
+     * NO SE ORDENA POR TIPO.
      *
-     * Si está vacío/null,
-     * se considera ilimitada.
+     * Se recorren directamente las clases
+     * que vienen ordenadas por "orden".
      */
 
-    const hasCapacity =
-        classItem.capacity !== null &&
-        classItem.capacity !== undefined &&
-        String(
-            classItem.capacity
-        ).trim() !== "" &&
-        Number.isFinite(
-            Number(
-                classItem.capacity
-            )
-        ) &&
-        Number(
-            classItem.capacity
-        ) > 0;
+    classes.forEach((classItem) => {
 
-    const placesLeft =
-        hasCapacity
-            ? Number(
-                classItem.capacity
-            ) -
-            Number(
-                classItem.bookedCount || 0
-            )
-            : null;
+        grid.appendChild(
+            createClassCard(classItem)
+        );
 
-    const isFull =
-        hasCapacity &&
-        placesLeft <= 0;
+    });
+
+
+    container.appendChild(grid);
+}
+
+
+// ==========================================
+// CREAR TARJETA DE CLASE
+// ==========================================
+
+function createClassCard(classItem) {
 
     const card =
         document.createElement("article");
 
-    card.className =
-        "class-card";
+    card.className = "class-card";
 
-    const displayTime =
-        normalizeTime(
-            classItem.time
+
+    // ==========================================
+    // IMAGEN
+    // ==========================================
+
+    if (classItem.imageUrl) {
+
+        const image =
+            document.createElement("img");
+
+        image.src = classItem.imageUrl;
+
+        image.alt =
+            classItem.title ||
+            "Actividad";
+
+        image.loading = "lazy";
+
+        image.onerror = () => {
+
+            image.style.display = "none";
+
+        };
+
+        card.appendChild(image);
+
+    }
+
+
+    // ==========================================
+    // CUERPO
+    // ==========================================
+
+    const body =
+        document.createElement("div");
+
+    body.className = "card-body";
+
+
+    // ==========================================
+    // TIPO
+    // ==========================================
+
+    if (classItem.tipo) {
+
+        const type =
+            document.createElement("div");
+
+        type.className =
+            "class-type";
+
+        type.textContent =
+            classItem.tipo;
+
+        body.appendChild(type);
+
+    }
+
+
+    // ==========================================
+    // TÍTULO
+    // ==========================================
+
+    const title =
+        document.createElement("h4");
+
+    title.textContent =
+        classItem.title ||
+        "Actividad";
+
+    body.appendChild(title);
+
+
+    // ==========================================
+    // CENTRO / ENTRENADOR
+    // ==========================================
+
+    if (classItem.trainer) {
+
+        const trainer =
+            document.createElement("div");
+
+        trainer.className =
+            "class-trainer";
+
+        trainer.textContent =
+            classItem.trainer;
+
+        body.appendChild(trainer);
+
+    }
+
+
+    // ==========================================
+    // FECHA
+    // ==========================================
+
+    if (classItem.date) {
+
+        const date =
+            document.createElement("div");
+
+        date.className =
+            "class-date";
+
+        date.textContent =
+            formatDate(classItem.date);
+
+        body.appendChild(date);
+
+    }
+
+
+    // ==========================================
+    // DESCRIPCIÓN
+    // ==========================================
+
+    if (classItem.description) {
+
+        const description =
+            document.createElement("div");
+
+        description.className =
+            "class-description";
+
+        description.textContent =
+            classItem.description;
+
+        body.appendChild(description);
+
+    }
+
+
+    // ==========================================
+    // INFORMACIÓN DE PLAZAS
+    // ==========================================
+
+    const capacity =
+        document.createElement("div");
+
+    capacity.className =
+        "class-capacity";
+
+
+    const numericCapacity =
+        Number(classItem.capacity);
+
+    const hasLimitedCapacity =
+        Number.isFinite(
+            numericCapacity
+        ) &&
+        numericCapacity > 0;
+
+
+    if (hasLimitedCapacity) {
+
+        const bookedCount =
+            Number(
+                classItem.bookedCount || 0
+            );
+
+        const remaining =
+            Math.max(
+                numericCapacity - bookedCount,
+                0
+            );
+
+
+        if (remaining <= 0) {
+
+            capacity.textContent =
+                "Clase completa";
+
+            capacity.classList.add(
+                "full"
+            );
+
+        } else {
+
+            capacity.textContent =
+                `${remaining} ${
+                    remaining === 1
+                        ? "plaza disponible"
+                        : "plazas disponibles"
+                }`;
+
+        }
+
+    } else {
+
+        capacity.textContent =
+            "Plazas disponibles";
+
+    }
+
+
+    body.appendChild(capacity);
+
+
+    // ==========================================
+    // BOTÓN
+    // ==========================================
+
+    const actions =
+        document.createElement("div");
+
+    actions.className =
+        "card-actions";
+
+
+    const button =
+        document.createElement("button");
+
+    button.type = "button";
+
+    button.className =
+        "reserve-class-button";
+
+    button.textContent =
+        "Reservar";
+
+
+    // ------------------------------------------
+    // Comprobar si está llena
+    // ------------------------------------------
+
+    const bookedCount =
+        Number(
+            classItem.bookedCount || 0
         );
 
-    const type =
-        normalizeType(
-            classItem.tipo
+    const hasLimitedCapacity =
+        Number.isFinite(
+            Number(classItem.capacity)
+        ) &&
+        Number(classItem.capacity) > 0;
+
+    const isFull =
+        hasLimitedCapacity &&
+        bookedCount >= Number(
+            classItem.capacity
         );
 
-    card.innerHTML = `
-        <img
-            src="${escapeHtml(
-                classItem.imageUrl || ""
-            )}"
-            alt="${escapeHtml(
-                classItem.title ||
-                "Actividad"
-            )}"
-        >
 
-        <div class="card-body">
+    if (isFull) {
 
-            <div class="card-top">
+        button.disabled = true;
 
-                <span>
-                    ${type}
-                    ${
-                        classItem.duration
-                            ? ` · ${classItem.duration} MIN`
-                            : ""
-                    }
-                </span>
+        button.textContent =
+            "Completa";
 
-                <span
-                    class="availability ${
-                        isFull
-                            ? "full"
-                            : ""
-                    }"
-                >
-                    ${
-                        isFull
-                            ? "Clase completa"
-                            : hasCapacity
-                                ? `${placesLeft} plazas`
-                                : "Plazas disponibles"
-                    }
-                </span>
+        button.classList.add(
+            "disabled"
+        );
 
-            </div>
+    }
 
-            <h3>
-                ${escapeHtml(
-                    classItem.title || ""
-                )}
-            </h3>
 
-            <p>
-                ${escapeHtml(
-                    classItem.trainer || ""
-                )}
+    // ------------------------------------------
+    // Reservar
+    // ------------------------------------------
 
-                ${
-                    classItem.trainer &&
-                    classItem.date
-                        ? " · "
-                        : ""
-                }
+    button.addEventListener(
+        "click",
+        () => {
 
-                ${
-                    classItem.date
-                        ? formatDate(
-                            classItem.date
-                        )
-                        : ""
-                }
-
-                ${
-                    displayTime
-                        ? " · "
-                        : ""
-                }
-
-                ${displayTime}
-            </p>
-
-            ${
-                classItem.description
-                    ? `
-                        <p class="description">
-                            ${escapeHtml(
-                                classItem.description
-                            )}
-                        </p>
-                    `
-                    : ""
+            if (button.disabled) {
+                return;
             }
 
-            ${
-                isFull
-                    ? `
-                        <button
-                            type="button"
-                            class="reserve"
-                            disabled
-                        >
-                            Clase completa
-                        </button>
-                    `
-                    : `
-                        <a
-                            class="reserve"
-                            href="/reservar/${encodeURIComponent(
-                                classItem.id
-                            )}"
-                        >
-                            Reservar plaza
-                            <b>→</b>
-                        </a>
-                    `
-            }
+            goToReservation(
+                classItem
+            );
 
-        </div>
-    `;
+        }
+    );
+
+
+    actions.appendChild(button);
+
+    body.appendChild(actions);
+
+    card.appendChild(body);
+
 
     return card;
 }
 
-/* =========================================================
-   ESCAPAR HTML
-   ========================================================= */
 
-function escapeHtml(value) {
+// ==========================================
+// IR A RESERVAR
+// ==========================================
 
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+function goToReservation(classItem) {
 
-/* =========================================================
-   RENDERIZAR CLASES DENTRO DEL HORARIO
-   ========================================================= */
+    const params =
+        new URLSearchParams();
 
-function renderClassesIntoContainer(
-    classes,
-    container,
-    selectedLabel
-) {
 
-    const heading =
-        document.createElement("div");
-
-    heading.className =
-        "selected-schedule-heading";
-
-    heading.innerHTML = `
-        <div>
-
-            <p class="eyebrow">
-                ${
-                    selectedSchedule ===
-                    "__NO_SCHEDULE__"
-                        ? "ACTIVIDADES"
-                        : "HORARIO SELECCIONADO"
-                }
-            </p>
-
-            <h2>
-                ${selectedLabel || ""}
-            </h2>
-
-        </div>
-    `;
-
-    container.appendChild(
-        heading
+    params.set(
+        "classId",
+        classItem.id
     );
 
-    if (classes.length === 0) {
 
-        const empty =
-            document.createElement("div");
+    /*
+     * Guardamos también los datos básicos
+     * para que reservar.js pueda utilizarlos
+     * si los necesita.
+     */
 
-        empty.className =
-            "schedule-empty";
+    if (classItem.title) {
 
-        empty.innerHTML = `
-            <p class="eyebrow">
-                SIN ACTIVIDADES
-            </p>
-
-            <h3>
-                No hay actividades en este horario.
-            </h3>
-
-            <p>
-                Prueba seleccionando otra franja horaria.
-            </p>
-        `;
-
-        container.appendChild(
-            empty
+        params.set(
+            "title",
+            classItem.title
         );
 
-        return;
     }
 
-    /*
-     * Agrupamos por TIPO:
-     *
-     * DEPORTIVO
-     * CLÍNICO
-     * OTROS
-     */
+    if (classItem.date) {
 
-    const grouped = {
-        DEPORTIVO: [],
-        "CLÍNICO": [],
-        OTROS: []
-    };
-
-    classes.forEach(
-        classItem => {
-
-            const type =
-                normalizeType(
-                    classItem.tipo
-                );
-
-            if (!grouped[type]) {
-                grouped.OTROS.push(
-                    classItem
-                );
-            } else {
-                grouped[type].push(
-                    classItem
-                );
-            }
-        }
-    );
-
-    /*
-     * Primero DEPORTIVO,
-     * después CLÍNICO,
-     * después OTROS.
-     */
-
-    [
-        "DEPORTIVO",
-        "CLÍNICO",
-        "OTROS"
-    ].forEach(type => {
-
-        if (
-            grouped[type].length === 0
-        ) {
-            return;
-        }
-
-        container.appendChild(
-            createTypeSection(
-                type,
-                grouped[type]
-            )
+        params.set(
+            "date",
+            classItem.date
         );
-    });
+
+    }
+
+    if (classItem.time) {
+
+        params.set(
+            "time",
+            classItem.time
+        );
+
+    }
+
+
+    window.location.href =
+        `/reservar?${params.toString()}`;
 }
 
-/* =========================================================
-   FORMATEAR FECHA
-   ========================================================= */
 
-function formatDate(value) {
+// ==========================================
+// INICIAR
+// ==========================================
 
-    if (!value) {
-        return "Fecha no disponible";
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        loadClasses();
+
     }
-
-    const text =
-        String(value).trim();
-
-    let day;
-    let month;
-    let year;
-
-    /*
-     * 2026-10-03
-     */
-
-    if (
-        /^\d{4}-\d{2}-\d{2}$/.test(
-            text
-        )
-    ) {
-
-        [
-            year,
-            month,
-            day
-        ] = text.split("-");
-    }
-
-    /*
-     * 03/10/2026
-     */
-
-    else if (
-        /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(
-            text
-        )
-    ) {
-
-        [
-            day,
-            month,
-            year
-        ] = text.split("/");
-    }
-
-    /*
-     * Otros formatos
-     */
-
-    else {
-
-        const date =
-            new Date(text);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "Fecha no disponible";
-        }
-
-        day =
-            String(
-                date.getDate()
-            ).padStart(
-                2,
-                "0"
-            );
-
-        month =
-            String(
-                date.getMonth() + 1
-            ).padStart(
-                2,
-                "0"
-            );
-
-        year =
-            String(
-                date.getFullYear()
-            );
-    }
-
-    const months = [
-        "enero",
-        "febrero",
-        "marzo",
-        "abril",
-        "mayo",
-        "junio",
-        "julio",
-        "agosto",
-        "septiembre",
-        "octubre",
-        "noviembre",
-        "diciembre"
-    ];
-
-    const monthIndex =
-        Number(month) - 1;
-
-    if (
-        monthIndex < 0 ||
-        monthIndex > 11
-    ) {
-
-        return `${day}/${month}/${year}`;
-    }
-
-    return `
-        ${day}
-        de
-        ${months[monthIndex]}
-        de
-        ${year}
-    `
-        .replace(
-            /\s+/g,
-            " "
-        )
-        .trim();
-}
-
-/* =========================================================
-   INICIAR
-   ========================================================= */
-
-loadClasses();
+);
