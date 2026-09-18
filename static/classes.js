@@ -487,14 +487,33 @@ async function loadClasses() {
 // la primera aparición en Google Sheets.
 // ==========================================
 
+// ==========================================
+// OBTENER HORARIOS
+// ==========================================
+//
+// Los horarios se agrupan por HORA DE INICIO.
+//
+// Ejemplo:
+//
+// 10:30-11:10  → 10:30
+// 10:30-12:00  → 10:30
+// 10:30-13:30  → 10:30
+//
+// 11:30-12:10  → 11:30
+//
+// 12:30-13:10  → 12:30
+//
+// El orden se mantiene según la primera
+// aparición en Google Sheets.
+// ==========================================
 function getSchedules(classes) {
 
     // Orden que queremos mostrar SIEMPRE
     const manualOrder = [
-        "09:45",
-        "10:30",
-        "11:30",
-        "12:30"
+        "09:45-10:15",
+        "10:30-11:10",
+        "11:30-12:10",
+        "12:30-13:10"
     ];
 
     // Obtener las horas que realmente tienen clases
@@ -530,7 +549,6 @@ function getSchedules(classes) {
         availableSchedules.includes(schedule)
     );
 }
-
 
 // ==========================================
 // RENDERIZAR HORARIOS
