@@ -482,20 +482,23 @@ async function loadClasses() {
 // OBTENER HORARIOS
 // ==========================================
 //
-// Los horarios se agrupan por HORA DE INICIO.
+// Agrupa las clases por HORA DE INICIO
+// y ordena los horarios de menor a mayor.
 //
 // Ejemplo:
 //
+// 09:45-10:15  → 09:45
 // 10:30-11:10  → 10:30
 // 10:30-12:00  → 10:30
-// 10:30-13:30  → 10:30
-//
 // 11:30-12:10  → 11:30
-//
 // 12:30-13:10  → 12:30
 //
-// El orden se mantiene según la primera
-// aparición en Google Sheets.
+// Resultado:
+//
+// 09:45
+// 10:30
+// 11:30
+// 12:30
 // ==========================================
 function getSchedules(classes) {
     const schedules = [];
@@ -505,22 +508,42 @@ function getSchedules(classes) {
             return;
         }
 
-        const normalizedTime = normalizeTime(classItem.time);
+        const normalizedTime =
+            normalizeTime(classItem.time);
 
         if (!normalizedTime) {
             return;
         }
 
         // Obtener solamente la hora de inicio
-        const startTime = normalizedTime.split("-")[0];
+        const startTime =
+            normalizedTime.split("-")[0];
 
         if (!startTime) {
             return;
         }
 
+        // Evitar horarios duplicados
         if (!schedules.includes(startTime)) {
             schedules.push(startTime);
         }
+    });
+
+    // Ordenar cronológicamente por hora de inicio
+    schedules.sort((a, b) => {
+        const [hoursA, minutesA] =
+            a.split(":").map(Number);
+
+        const [hoursB, minutesB] =
+            b.split(":").map(Number);
+
+        const totalMinutesA =
+            hoursA * 60 + minutesA;
+
+        const totalMinutesB =
+            hoursB * 60 + minutesB;
+
+        return totalMinutesA - totalMinutesB;
     });
 
     return schedules;
