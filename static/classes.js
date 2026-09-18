@@ -489,45 +489,46 @@ async function loadClasses() {
 
 function getSchedules(classes) {
 
-    const schedules = [];
+    // Orden que queremos mostrar SIEMPRE
+    const manualOrder = [
+        "09:45",
+        "10:30",
+        "11:30",
+        "12:30"
+    ];
 
+    // Obtener las horas que realmente tienen clases
+    const availableSchedules = [];
 
-    classes.forEach(
-        (classItem) => {
+    classes.forEach((classItem) => {
 
-            if (!classItem.time) {
-                return;
-            }
-
-
-            const normalizedTime =
-                normalizeTime(
-                    classItem.time
-                );
-
-
-            if (!normalizedTime) {
-                return;
-            }
-
-
-            if (
-                !schedules.includes(
-                    normalizedTime
-                )
-            ) {
-
-                schedules.push(
-                    normalizedTime
-                );
-
-            }
-
+        if (!classItem.time) {
+            return;
         }
+
+        const normalizedTime =
+            normalizeTime(classItem.time);
+
+        if (!normalizedTime) {
+            return;
+        }
+
+        const startTime =
+            normalizedTime.split("-")[0];
+
+        if (
+            startTime &&
+            !availableSchedules.includes(startTime)
+        ) {
+            availableSchedules.push(startTime);
+        }
+    });
+
+    // Devolver únicamente los horarios que existen
+    // y en el orden manual indicado arriba
+    return manualOrder.filter((schedule) =>
+        availableSchedules.includes(schedule)
     );
-
-
-    return schedules;
 }
 
 
