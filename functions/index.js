@@ -96,7 +96,7 @@ async function asegurarPestanaClases(sheets) {
 
     await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${CLASES_SHEET}!A1:J1`,
+        range: `${CLASES_SHEET}!A1:K1`,
         valueInputOption: "RAW",
         requestBody: {
             values: [[
@@ -109,7 +109,8 @@ async function asegurarPestanaClases(sheets) {
                 "capacity",
                 "description",
                 "imageUrl",
-                "activa"
+                "activa",
+                "tipo"
             ]]
         }
     });
@@ -132,7 +133,7 @@ async function obtenerClasesDesdeSheets() {
     const response =
         await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${CLASES_SHEET}!A:J`,
+            range: `${CLASES_SHEET}!A:K`,
             valueRenderOption: "FORMATTED_VALUE"
         });
 
@@ -201,7 +202,7 @@ async function obtenerClasesDesdeSheets() {
             String(row[9] ?? "")
                 .trim()
                 .toLowerCase();
-
+        const tipo = String(row[10] || "").trim().toUpperCase();
         /*
          * Si la celda está vacía, la consideramos activa.
          *
@@ -230,7 +231,8 @@ async function obtenerClasesDesdeSheets() {
             capacity,
             description,
             imageUrl,
-            activa
+            activa,
+            tipo
         });
     }
 
@@ -1344,10 +1346,10 @@ exports.reserveClass =
 
             const classRef =
                 db
-                    
+                .orderBy("id", "asc")
                 .collection("classes")
-                    .orderBy("", "asc")
                     .doc(normalizedClassId);
+                    
 
             const classSnapshot =
                 await classRef.get();
