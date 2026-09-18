@@ -6,11 +6,6 @@ import {
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-import {
-    getFunctions,
-    httpsCallable
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
-
 import { firebaseConfig } from "./firebase-config.js";
 
 
@@ -21,16 +16,6 @@ import { firebaseConfig } from "./firebase-config.js";
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
-
-const functions = getFunctions(
-    app,
-    "us-central1"
-);
-
-const syncClassesFunction = httpsCallable(
-    functions,
-    "syncClassesFromSheets"
-);
 
 
 /* =========================================================
@@ -79,12 +64,11 @@ async function loadClasses() {
     try {
 
         /*
-         * Google Sheets es la fuente principal.
-         * Primero sincronizamos y después leemos Firestore.
+         * Las clases se leen directamente desde Firestore.
+         *
+         * La sincronización Google Sheets → Firestore
+         * se realiza automáticamente en segundo plano.
          */
-
-        await syncClassesFunction();
-
 
         const snapshot = await getDocs(
             collection(db, "classes")
@@ -145,9 +129,15 @@ async function loadClasses() {
         );
 
 
-        if (classGrid) {
+        const section =
+            document.getElementById(
+                "class-schedules"
+            );
 
-            classGrid.innerHTML = `
+
+        if (section) {
+
+            section.innerHTML = `
                 <div class="schedule-empty">
 
                     <p class="eyebrow">
@@ -198,7 +188,8 @@ function normalizeTime(value) {
     }
 
 
-    let time = String(value).trim();
+    let time =
+        String(value).trim();
 
 
     if (!time) {
@@ -254,37 +245,46 @@ function normalizeTime(value) {
 
 function getAvailableSchedules() {
 
-    const schedules = new Map();
+    const schedules =
+        new Map();
 
 
-    allClasses.forEach(classItem => {
+    allClasses.forEach(
+        classItem => {
 
-        const normalized =
-            normalizeTime(classItem.time);
+            const normalized =
+                normalizeTime(
+                    classItem.time
+                );
 
 
-        /*
-         * Las clases sin horario no entran aquí.
-         */
+            /*
+             * Las clases sin horario no entran aquí.
+             */
 
-        if (!normalized) {
-            return;
+            if (!normalized) {
+                return;
+            }
+
+
+            if (
+                !schedules.has(
+                    normalized
+                )
+            ) {
+
+                schedules.set(
+                    normalized,
+                    {
+                        id: normalized,
+                        label: normalized
+                    }
+                );
+
+            }
+
         }
-
-
-        if (!schedules.has(normalized)) {
-
-            schedules.set(
-                normalized,
-                {
-                    id: normalized,
-                    label: normalized
-                }
-            );
-
-        }
-
-    });
+    );
 
 
     return Array.from(
@@ -341,7 +341,9 @@ function getOtherSchedules() {
         )
         .sort(
             (a, b) =>
-                a.id.localeCompare(b.id)
+                a.id.localeCompare(
+                    b.id
+                )
         );
 
 }
@@ -365,7 +367,8 @@ function getClassesForSchedule(
 
 
             return (
-                classTime === schedule.id
+                classTime ===
+                schedule.id
             );
 
         }
@@ -394,6 +397,147 @@ function getClassesWithoutSchedule() {
 
 
 /* =========================================================
+   CLASIFICAR CENTROS
+   =========================================================
+
+   clinical = centros clínicos / salud
+   sports   = centros deportivos
+   other    = otras actividades
+   ========================================================= */
+
+function getClassCategory(
+    classItem
+) {
+
+    const trainer =
+        String(
+            classItem.trainer || ""
+        )
+            .trim()
+            .toLowerCase();
+
+
+    const title =
+        String(
+            classItem.title || ""
+        )
+            .trim()
+            .toLowerCase();
+
+
+    /*
+     * CENTROS CLÍNICOS Y DE SALUD
+     */
+
+    const clinicalKeywords = [
+
+        "gaba",
+        "podología",
+        "podologia",
+        "osteópata",
+        "osteopata",
+        "cardiología",
+        "cardiologia",
+        "clínica cardiología",
+        "clinica cardiologia",
+        "nutrición",
+        "nutricion",
+        "salud integrativa",
+        "salud funcional",
+        "acupuntura",
+        "fisioterapia",
+        "fisioterapeuta",
+        "clínica",
+        "clinica"
+
+    ];
+
+
+    if (
+        clinicalKeywords.some(
+            keyword =>
+                trainer.includes(keyword) ||
+                title.includes(keyword)
+        )
+    ) {
+
+        return "clinical";
+
+    }
+
+
+    /*
+     * CENTROS DEPORTIVOS
+     */
+
+    const sportsKeywords = [
+
+        "myos",
+        "coach",
+        "creative zone",
+        "entrenamiento",
+        "yoga",
+        "fuerza",
+        "deportivo",
+        "fitness",
+        "sport",
+        "performance"
+
+    ];
+
+
+    if (
+        sportsKeywords.some(
+            keyword =>
+                trainer.includes(keyword) ||
+                title.includes(keyword)
+        )
+    ) {
+
+        return "sports";
+
+    }
+
+
+    /*
+     * OTRAS ACTIVIDADES
+     */
+
+    return "other";
+
+}
+
+
+/* =========================================================
+   NOMBRE DE LA CATEGORÍA
+   ========================================================= */
+
+function getCategoryLabel(
+    category
+) {
+
+    switch (category) {
+
+        case "clinical":
+
+            return "CENTROS CLÍNICOS Y SALUD";
+
+
+        case "sports":
+
+            return "CENTROS DEPORTIVOS";
+
+
+        default:
+
+            return "OTRAS ACTIVIDADES";
+
+    }
+
+}
+
+
+/* =========================================================
    CREAR BOTÓN DE HORARIO
    ========================================================= */
 
@@ -409,15 +553,12 @@ function createScheduleButton(
 
     /*
      * Contenedor completo del horario.
-     *
-     * Dentro estarán:
-     *
-     * - botón
-     * - clases desplegadas
      */
 
     const wrapper =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     wrapper.className =
         "schedule-item";
@@ -428,16 +569,20 @@ function createScheduleButton(
        ===================================================== */
 
     const button =
-        document.createElement("button");
+        document.createElement(
+            "button"
+        );
 
-    button.type = "button";
+    button.type =
+        "button";
 
     button.className =
         "schedule-button";
 
 
     const isSelected =
-        selectedSchedule === schedule.id;
+        selectedSchedule ===
+        schedule.id;
 
 
     if (isSelected) {
@@ -470,16 +615,13 @@ function createScheduleButton(
        ===================================================== */
 
     const content =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     content.className =
         "schedule-item-content";
 
-
-    /*
-     * Si este horario está seleccionado,
-     * ponemos las clases JUSTO debajo del botón.
-     */
 
     if (isSelected) {
 
@@ -498,31 +640,22 @@ function createScheduleButton(
 
 
     /* =====================================================
-       CLICK DEL BOTÓN
+       CLICK
        ===================================================== */
 
     button.addEventListener(
         "click",
         () => {
 
-            /*
-             * Si pulsamos el horario que ya está abierto,
-             * lo cerramos.
-             */
-
             if (
                 selectedSchedule ===
                 schedule.id
             ) {
 
-                selectedSchedule = null;
+                selectedSchedule =
+                    null;
 
             }
-
-            /*
-             * Si pulsamos otro horario,
-             * abrimos ese.
-             */
 
             else {
 
@@ -562,7 +695,9 @@ function createNoScheduleButton(
 ) {
 
     const wrapper =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     wrapper.className =
         "schedule-item";
@@ -573,9 +708,12 @@ function createNoScheduleButton(
        ===================================================== */
 
     const button =
-        document.createElement("button");
+        document.createElement(
+            "button"
+        );
 
-    button.type = "button";
+    button.type =
+        "button";
 
     button.className =
         "schedule-button no-schedule-button";
@@ -624,7 +762,9 @@ function createNoScheduleButton(
        ===================================================== */
 
     const content =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     content.className =
         "schedule-item-content";
@@ -716,12 +856,8 @@ function renderSchedules() {
     }
 
 
-    /*
-     * Limpiamos todo para volver a construir
-     * la estructura.
-     */
-
-    section.innerHTML = "";
+    section.innerHTML =
+        "";
 
 
     /* =====================================================
@@ -729,7 +865,9 @@ function renderSchedules() {
        ===================================================== */
 
     const heading =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
 
     heading.className =
@@ -765,7 +903,9 @@ function renderSchedules() {
     ) {
 
         const mainTitle =
-            document.createElement("p");
+            document.createElement(
+                "p"
+            );
 
 
         mainTitle.className =
@@ -782,7 +922,9 @@ function renderSchedules() {
 
 
         const mainContainer =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         mainContainer.className =
@@ -822,7 +964,9 @@ function renderSchedules() {
     ) {
 
         const otherTitle =
-            document.createElement("p");
+            document.createElement(
+                "p"
+            );
 
 
         otherTitle.className =
@@ -839,7 +983,9 @@ function renderSchedules() {
 
 
         const otherContainer =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         otherContainer.className =
@@ -879,7 +1025,9 @@ function renderSchedules() {
     ) {
 
         const noScheduleTitle =
-            document.createElement("p");
+            document.createElement(
+                "p"
+            );
 
 
         noScheduleTitle.className =
@@ -896,7 +1044,9 @@ function renderSchedules() {
 
 
         const noScheduleContainer =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         noScheduleContainer.className =
@@ -920,7 +1070,7 @@ function renderSchedules() {
 
 
 /* =========================================================
-   RENDERIZAR CLASES DENTRO DEL HORARIO
+   RENDERIZAR CLASES
    ========================================================= */
 
 function renderClassesIntoContainer(
@@ -934,7 +1084,9 @@ function renderClassesIntoContainer(
        ===================================================== */
 
     const heading =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
 
     heading.className =
@@ -975,7 +1127,9 @@ function renderClassesIntoContainer(
     ) {
 
         const empty =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         empty.className =
@@ -1008,11 +1162,73 @@ function renderClassesIntoContainer(
 
 
     /* =====================================================
+       ORDENAR POR CATEGORÍA
+       ===================================================== */
+
+    const categoryOrder = {
+        clinical: 1,
+        sports: 2,
+        other: 3
+    };
+
+
+    const orderedClasses =
+        [...classes].sort(
+            (a, b) => {
+
+                const categoryA =
+                    getClassCategory(a);
+
+                const categoryB =
+                    getClassCategory(b);
+
+
+                /*
+                 * Primero categoría y después
+                 * nombre del centro.
+                 */
+
+                if (
+                    categoryOrder[categoryA] !==
+                    categoryOrder[categoryB]
+                ) {
+
+                    return (
+                        categoryOrder[categoryA] -
+                        categoryOrder[categoryB]
+                    );
+
+                }
+
+
+                const trainerA =
+                    String(
+                        a.trainer || ""
+                    ).toLowerCase();
+
+
+                const trainerB =
+                    String(
+                        b.trainer || ""
+                    ).toLowerCase();
+
+
+                return trainerA.localeCompare(
+                    trainerB
+                );
+
+            }
+        );
+
+
+    /* =====================================================
        CONTENEDOR DE TARJETAS
        ===================================================== */
 
     const cards =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
 
     cards.className =
@@ -1023,17 +1239,62 @@ function renderClassesIntoContainer(
        TARJETAS
        ===================================================== */
 
-    classes.forEach(
+    let previousCategory =
+        null;
+
+
+    orderedClasses.forEach(
         classItem => {
 
+            const currentCategory =
+                getClassCategory(
+                    classItem
+                );
+
+
             /*
-             * Si capacity es un número positivo,
-             * la clase tiene plazas limitadas.
-             *
-             * Si está vacío o contiene un texto como
-             * "PARA LOS ALLÍ PRESENTES",
-             * se considera ilimitada.
+             * Añadimos el título de categoría
+             * cuando cambia.
              */
+
+            if (
+                currentCategory !==
+                previousCategory
+            ) {
+
+                const categoryHeading =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                categoryHeading.className =
+                    "class-category-heading";
+
+
+                categoryHeading.innerHTML = `
+                    <span>
+                        ${getCategoryLabel(
+                            currentCategory
+                        )}
+                    </span>
+                `;
+
+
+                cards.appendChild(
+                    categoryHeading
+                );
+
+
+                previousCategory =
+                    currentCategory;
+
+            }
+
+
+            /* =================================================
+               CAPACIDAD
+               ================================================= */
 
             const hasCapacity =
                 classItem.capacity !== null &&
@@ -1092,7 +1353,7 @@ function renderClassesIntoContainer(
 
 
             /* =================================================
-               HTML DE LA TARJETA
+               HTML
                ================================================= */
 
             card.innerHTML = `
@@ -1284,8 +1545,6 @@ function formatDate(
 
 
     /* =====================================================
-       FORMATO:
-
        2026-10-03
        ===================================================== */
 
@@ -1299,14 +1558,13 @@ function formatDate(
             year,
             month,
             day
-        ] = text.split("-");
+        ] =
+            text.split("-");
 
     }
 
 
     /* =====================================================
-       FORMATO:
-
        03/10/2026
        ===================================================== */
 
@@ -1320,7 +1578,8 @@ function formatDate(
             day,
             month,
             year
-        ] = text.split("/");
+        ] =
+            text.split("/");
 
     }
 
@@ -1394,11 +1653,6 @@ function formatDate(
         Number(month) - 1;
 
 
-    /*
-     * Si por algún motivo el mes no es válido,
-     * evitamos mostrar "undefined".
-     */
-
     if (
         monthIndex < 0 ||
         monthIndex > 11
@@ -1415,10 +1669,12 @@ function formatDate(
         ${months[monthIndex]}
         de
         ${year}
-    `.replace(
-        /\s+/g,
-        " "
-    ).trim();
+    `
+        .replace(
+            /\s+/g,
+            " "
+        )
+        .trim();
 
 }
 
