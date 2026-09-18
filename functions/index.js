@@ -1047,18 +1047,6 @@ ${
 </tr>
 
 </table>
-<p>
-`
-        : ""
-}    margin:0;
-    color:#6c8b7b;
-    font-size:12px;
-    line-height:1.6;
-    text-align:center;
-">
-
-</p>
-
 </td>
 
 </tr>
