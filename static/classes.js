@@ -478,18 +478,33 @@ async function loadClasses() {
 
 }
 
+
 // ==========================================
 // OBTENER HORARIOS
 // ==========================================
 //
-// ORDEN MANUAL DE LOS HORARIOS
+// Los horarios aparecen en el orden de
+// la primera aparición en Google Sheets.
+// ==========================================
+
+// ==========================================
+// OBTENER HORARIOS
+// ==========================================
 //
-// 09:45
-// 10:30
-// 11:30
-// 12:30
+// Los horarios se agrupan por HORA DE INICIO.
 //
-// Las clases se agrupan por su hora de inicio.
+// Ejemplo:
+//
+// 10:30-11:10  → 10:30
+// 10:30-12:00  → 10:30
+// 10:30-13:30  → 10:30
+//
+// 11:30-12:10  → 11:30
+//
+// 12:30-13:10  → 12:30
+//
+// El orden se mantiene según la primera
+// aparición en Google Sheets.
 // ==========================================
 function getSchedules(classes) {
 
@@ -539,20 +554,347 @@ function getSchedules(classes) {
 // RENDERIZAR HORARIOS
 // ==========================================
 
-const scheduleClasses = classes.filter((classItem) => {
+function renderSchedules(classes) {
 
-        if (!classItem.time) {
-            return false;
+    if (!schedulesSection) {
+        return;
+    }
+
+
+    schedulesSection.innerHTML = "";
+
+
+    // --------------------------------------
+    // HORARIOS
+    // --------------------------------------
+
+    const schedules =
+        getSchedules(classes);
+
+
+    // --------------------------------------
+    // ACTIVIDADES SIN HORARIO
+    // --------------------------------------
+
+    const classesWithoutTime =
+        classes.filter(
+            (classItem) =>
+                !classItem.time
+        );
+
+
+    // ======================================
+    // CABECERA
+    // ======================================
+
+    const heading =
+        document.createElement(
+            "div"
+        );
+
+
+    heading.className =
+        "schedule-heading";
+
+
+    heading.innerHTML = `
+        <h3>Horarios</h3>
+
+        <p>
+            Selecciona un horario para ver las actividades disponibles.
+        </p>
+    `;
+
+
+    schedulesSection.appendChild(
+        heading
+    );
+
+
+    // ======================================
+    // CONTENEDOR DE HORARIOS
+    // ======================================
+
+    const buttonsContainer =
+        document.createElement(
+            "div"
+        );
+
+
+    buttonsContainer.className =
+        "schedule-buttons";
+
+
+    // ======================================
+    // CREAR HORARIOS
+    // ======================================
+
+    schedules.forEach(
+        (schedule) => {
+
+            const scheduleItem =
+                document.createElement(
+                    "div"
+                );
+
+
+            scheduleItem.className =
+                "schedule-item";
+
+
+            // ----------------------------------
+            // BOTÓN HORARIO
+            // ----------------------------------
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.type =
+                "button";
+
+
+            button.className =
+                "schedule-button";
+
+
+            button.innerHTML = `
+                <span>
+                    ${schedule}
+                </span>
+
+                <small>
+                    Ver actividades de este horario
+                </small>
+            `;
+
+
+            // ----------------------------------
+            // CONTENIDO
+            // ----------------------------------
+
+            const content =
+                document.createElement(
+                    "div"
+                );
+
+
+            content.className =
+                "schedule-item-content";
+
+
+            // ----------------------------------
+            // CLASES DEL HORARIO
+            // ----------------------------------
+
+            const scheduleClasses =
+                classes.filter(
+                    (classItem) => {
+
+                        return (
+                            normalizeTime(
+                                classItem.time
+                            ) === schedule
+                        );
+
+                    }
+                );
+
+
+            renderClassesIntoContainer(
+                scheduleClasses,
+                content
+            );
+
+
+            // ==================================
+            // ABRIR / CERRAR
+            // ==================================
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const isOpen =
+                        content.classList.contains(
+                            "open"
+                        );
+
+
+                    // --------------------------
+                    // CERRAR OTROS
+                    // --------------------------
+
+                    document
+                        .querySelectorAll(
+                            ".schedule-item-content.open"
+                        )
+                        .forEach(
+                            (element) => {
+
+                                if (
+                                    element !== content
+                                ) {
+
+                                    element.classList.remove(
+                                        "open"
+                                    );
+
+                                }
+
+                            }
+                        );
+
+
+                    document
+                        .querySelectorAll(
+                            ".schedule-button.selected"
+                        )
+                        .forEach(
+                            (element) => {
+
+                                if (
+                                    element !== button
+                                ) {
+
+                                    element.classList.remove(
+                                        "selected"
+                                    );
+
+                                }
+
+                            }
+                        );
+
+
+                    // --------------------------
+                    // ABRIR / CERRAR ACTUAL
+                    // --------------------------
+
+                    if (isOpen) {
+
+                        content.classList.remove(
+                            "open"
+                        );
+
+                        button.classList.remove(
+                            "selected"
+                        );
+
+                    } else {
+
+                        content.classList.add(
+                            "open"
+                        );
+
+                        button.classList.add(
+                            "selected"
+                        );
+
+                    }
+
+                }
+            );
+
+
+            scheduleItem.appendChild(
+                button
+            );
+
+
+            scheduleItem.appendChild(
+                content
+            );
+
+
+            buttonsContainer.appendChild(
+                scheduleItem
+            );
+
         }
+    );
 
-        const normalizedTime =
-            normalizeTime(classItem.time);
 
-        const startTime =
-            normalizedTime.split("-")[0];
+    schedulesSection.appendChild(
+        buttonsContainer
+    );
 
-        return startTime === schedule;
-    });
+
+    // ======================================
+    // ACTIVIDADES SIN HORARIO
+    // ======================================
+
+    if (
+        classesWithoutTime.length > 0
+    ) {
+
+        const noScheduleWrapper =
+            document.createElement(
+                "div"
+            );
+
+
+        noScheduleWrapper.className =
+            "no-schedule-section";
+
+
+        const noScheduleTitle =
+            document.createElement(
+                "h3"
+            );
+
+
+        noScheduleTitle.textContent =
+            "Información y actividades";
+
+
+        noScheduleWrapper.appendChild(
+            noScheduleTitle
+        );
+
+
+        const noScheduleGrid =
+            document.createElement(
+                "div"
+            );
+
+
+        noScheduleGrid.className =
+            "class-grid-inner";
+
+
+        // ----------------------------------
+        // MISMO ORDEN DEL SHEET
+        // ----------------------------------
+
+        classesWithoutTime.forEach(
+            (classItem) => {
+
+                noScheduleGrid.appendChild(
+                    createClassCard(
+                        classItem
+                    )
+                );
+
+            }
+        );
+
+
+        noScheduleWrapper.appendChild(
+            noScheduleGrid
+        );
+
+
+        schedulesSection.appendChild(
+            noScheduleWrapper
+        );
+
+    }
+
+}
+
 
 // ==========================================
 // RENDERIZAR CLASES
