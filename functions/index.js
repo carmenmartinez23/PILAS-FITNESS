@@ -820,60 +820,60 @@ function createBookingEmailHtml({
 >
 
 <!-- CABECERA -->
-
 <tr>
-
-<td
-    align="center"
-    style="
-        background:#087542;
-        padding:32px 30px;
-    "
->
-
-<table
-    cellpadding="0"
-    cellspacing="0"
-    border="0"
->
-
-<tr>
-
-<td
-    align="center"
-    valign="middle"
-    style="
-        width:42px;
-        height:42px;
-        background:#8fdb4d;
-        border-radius:50%;
-        color:#083b2a;
-        font-size:22px;
-        font-weight:800;
-        line-height:42px;
-    "
->
-    F
-</td>
-
-<td style="
-    padding-left:12px;
-    color:#ffffff;
-    font-size:16px;
-    font-weight:800;
-    letter-spacing:3px;
-">
-    REVITALÍZATE
-</td>
-
+    <td
+        align="center"
+        style="
+            background:#087542;
+            padding:32px 30px;
+        "
+    >
+        <table
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+        >
+            <tr>
+                <!-- LOGO -->
+                <td
+                    align="center"
+                    valign="middle"
+                    style="
+                        width:42px;
+                        height:42px;
+                    "
+                >
+                    <img
+                        src="https://raw.githubusercontent.com/carmenmartinez23/PILAS-FITNESS/carmenmartinez23/Logo%20Cuadrado%20_%20R_1.png"
+                        alt="REVITALÍZATE"
+                        width="42"
+                        height="42"
+                        style="
+                            display:block;
+                            width:42px;
+                            height:42px;
+                            border:0;
+                            border-radius:50%;
+                        "
+                    >
+                </td>
+                <!-- NOMBRE -->
+                <td
+                    style="
+                        padding-left:12px;
+                        color:#ffffff;
+                        font-size:16px;
+                        font-weight:800;
+                        letter-spacing:3px;
+                        font-family:Arial,Helvetica,sans-serif;
+                    "
+                >
+                    REVITALÍZATE
+                </td>
+            </tr>
+        </table>
+    </td>
 </tr>
-
-</table>
-
-</td>
-
-</tr>
-
 <!-- CONTENIDO -->
 
 <tr>
