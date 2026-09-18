@@ -507,47 +507,32 @@ async function loadClasses() {
 // aparición en Google Sheets.
 // ==========================================
 function getSchedules(classes) {
-
-    // Orden que queremos mostrar SIEMPRE
-    const manualOrder = [
-        "09:45-10:15",
-        "10:30-11:10",
-        "11:30-12:10",
-        "12:30-13:10"
-    ];
-
-    // Obtener las horas que realmente tienen clases
-    const availableSchedules = [];
+    const schedules = [];
 
     classes.forEach((classItem) => {
-
         if (!classItem.time) {
             return;
         }
 
-        const normalizedTime =
-            normalizeTime(classItem.time);
+        const normalizedTime = normalizeTime(classItem.time);
 
         if (!normalizedTime) {
             return;
         }
 
-        const startTime =
-            normalizedTime.split("-")[0];
+        // Obtener solamente la hora de inicio
+        const startTime = normalizedTime.split("-")[0];
 
-        if (
-            startTime &&
-            !availableSchedules.includes(startTime)
-        ) {
-            availableSchedules.push(startTime);
+        if (!startTime) {
+            return;
+        }
+
+        if (!schedules.includes(startTime)) {
+            schedules.push(startTime);
         }
     });
 
-    // Devolver únicamente los horarios que existen
-    // y en el orden manual indicado arriba
-    return manualOrder.filter((schedule) =>
-        availableSchedules.includes(schedule)
-    );
+    return schedules;
 }
 
 // ==========================================
