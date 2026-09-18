@@ -437,13 +437,10 @@ async function loadClasses() {
         // "orden" que guarda el backend.
         // ======================================
 
-        classes.sort((a, b) => {
-            return String(a.id).localeCompare(
-                String(b.id),
-                undefined,
-                { numeric: true }
-            );
-        });
+        classes.sort(
+            (a, b) =>
+                a.orden - b.orden
+        );
 
 
         allClasses =
@@ -481,58 +478,53 @@ async function loadClasses() {
 
 }
 
-
 // ==========================================
 // OBTENER HORARIOS
 // ==========================================
 //
-// Los horarios aparecen en el orden de
-// la primera aparición en Google Sheets.
+// Los horarios se agrupan por HORA DE INICIO.
+//
+// Ejemplo:
+//
+// 10:30-11:10  → 10:30
+// 10:30-12:00  → 10:30
+// 10:30-13:30  → 10:30
+//
+// 11:30-12:10  → 11:30
+//
+// 12:30-13:10  → 12:30
+//
+// El orden se mantiene según la primera
+// aparición en Google Sheets.
 // ==========================================
-
 function getSchedules(classes) {
-
     const schedules = [];
 
-
-    classes.forEach(
-        (classItem) => {
-
-            if (!classItem.time) {
-                return;
-            }
-
-
-            const normalizedTime =
-                normalizeTime(
-                    classItem.time
-                );
-
-
-            if (!normalizedTime) {
-                return;
-            }
-
-
-            if (
-                !schedules.includes(
-                    normalizedTime
-                )
-            ) {
-
-                schedules.push(
-                    normalizedTime
-                );
-
-            }
-
+    classes.forEach((classItem) => {
+        if (!classItem.time) {
+            return;
         }
-    );
 
+        const normalizedTime = normalizeTime(classItem.time);
+
+        if (!normalizedTime) {
+            return;
+        }
+
+        // Obtener solamente la hora de inicio
+        const startTime = normalizedTime.split("-")[0];
+
+        if (!startTime) {
+            return;
+        }
+
+        if (!schedules.includes(startTime)) {
+            schedules.push(startTime);
+        }
+    });
 
     return schedules;
 }
-
 
 // ==========================================
 // RENDERIZAR HORARIOS
@@ -673,25 +665,21 @@ function renderSchedules(classes) {
             // CLASES DEL HORARIO
             // ----------------------------------
 
-            const scheduleClasses =
-                classes.filter(
+            const scheduleClasses = classes.filter(
                     (classItem) => {
+                        if (!classItem.time) {
+                            return false;
+                        }
 
-                        return (
-                            normalizeTime(
-                                classItem.time
-                            ) === schedule
-                        );
+                        const normalizedTime =
+                            normalizeTime(classItem.time);
 
+                        const startTime =
+                            normalizedTime.split("-")[0];
+
+                        return startTime === schedule;
                     }
                 );
-
-
-            renderClassesIntoContainer(
-                scheduleClasses,
-                content
-            );
-
 
             // ==================================
             // ABRIR / CERRAR
