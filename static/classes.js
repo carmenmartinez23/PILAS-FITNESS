@@ -7,7 +7,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
     getFirestore,
     collection,
-    getDocs
+    getDocs,
+    query,
+    orderBy
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -248,7 +250,8 @@ async function loadClasses() {
                 collection(
                     db,
                     "classes"
-                )
+                ),
+            orderBy("orden", "asc")
             );
 
 
