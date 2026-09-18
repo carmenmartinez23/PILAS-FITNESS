@@ -174,8 +174,21 @@ async function obtenerClasesDesdeSheets() {
         const duration =
             Number(row[5] || 0);
 
-        const capacity =
-            Number(row[6] || 0);
+        const capacityRaw =
+            String(row[6] ?? "").trim();
+
+        let capacity = null;
+
+        if (capacityRaw !== "") {
+            const parsedCapacity = Number(capacityRaw);
+
+            if (
+                Number.isFinite(parsedCapacity) &&
+                parsedCapacity > 0
+            ) {
+                capacity = parsedCapacity;
+            }
+        }
 
         const description =
             String(row[7] || "").trim();
@@ -1332,9 +1345,11 @@ exports.reserveClass =
             // -----------------------------------------
 
             const capacity =
-                Number(
-                    classData.capacity || 0
-                );
+                classData.capacity === null ||
+                classData.capacity === undefined ||
+                classData.capacity === ""
+                    ? null
+                    : Number(classData.capacity);
 
             // -----------------------------------------
             // 9. BUSCAR RESERVAS DEL NÚMERO
