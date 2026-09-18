@@ -1657,3 +1657,46 @@ gap: 10px;
     color: var(--ink);
     font-weight: 800;
 }
+/* =========================================================
+   CATEGORÍAS DE CENTROS
+   ========================================================= */
+
+.class-category-heading {
+    width: 100%;
+    margin-top: 20px;
+    margin-bottom: 7px;
+    padding: 9px 0 7px;
+    border-bottom: 1px solid var(--green-soft);
+}
+
+.class-category-heading:first-child {
+    margin-top: 0;
+}
+
+.class-category-heading span {
+    display: inline-block;
+    color: var(--green-dark);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+
+/* =========================================================
+   MÓVIL
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+    .class-category-heading {
+        margin-top: 15px;
+        margin-bottom: 5px;
+        padding: 7px 0 5px;
+    }
+
+    .class-category-heading span {
+        font-size: 0.55rem;
+    }
+
+}
