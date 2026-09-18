@@ -3,11 +3,17 @@
 // ==========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+
 import {
     getFirestore,
     collection,
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+
+// ==========================================
+// CONFIGURACIÓN FIREBASE
+// ==========================================
 
 const firebaseConfig = {
     apiKey: "TU_API_KEY",
@@ -26,7 +32,8 @@ const db = getFirestore(app);
 // ELEMENTOS
 // ==========================================
 
-const schedulesSection = document.getElementById("class-schedules");
+const schedulesSection =
+    document.getElementById("class-schedules");
 
 
 // ==========================================
@@ -50,20 +57,19 @@ function normalizeTime(time) {
 }
 
 
-// ------------------------------------------
-// Convierte una fecha a Date
-// Acepta:
-// 04/10/2026
-// 4/10/2026
-// 2026-10-04
-// ------------------------------------------
+// ==========================================
+// CONVERTIR FECHA A DATE
+// ==========================================
 
 function parseDate(dateValue) {
     if (!dateValue) return null;
 
     const value = String(dateValue).trim();
 
+    // --------------------------------------
     // dd/mm/yyyy
+    // --------------------------------------
+
     const europeanMatch = value.match(
         /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
     );
@@ -73,14 +79,22 @@ function parseDate(dateValue) {
         const month = Number(europeanMatch[2]) - 1;
         const year = Number(europeanMatch[3]);
 
-        const date = new Date(year, month, day);
+        const date = new Date(
+            year,
+            month,
+            day
+        );
 
         if (!Number.isNaN(date.getTime())) {
             return date;
         }
     }
 
+
+    // --------------------------------------
     // yyyy-mm-dd
+    // --------------------------------------
+
     const isoMatch = value.match(
         /^(\d{4})-(\d{1,2})-(\d{1,2})$/
     );
@@ -90,7 +104,11 @@ function parseDate(dateValue) {
         const month = Number(isoMatch[2]) - 1;
         const day = Number(isoMatch[3]);
 
-        const date = new Date(year, month, day);
+        const date = new Date(
+            year,
+            month,
+            day
+        );
 
         if (!Number.isNaN(date.getTime())) {
             return date;
@@ -101,13 +119,15 @@ function parseDate(dateValue) {
 }
 
 
-// ------------------------------------------
-// Formato bonito de fecha
-// Ejemplo:
+// ==========================================
+// FORMATO BONITO DE FECHA
+// ==========================================
+//
 // 04/10/2026
 // ↓
 // 4 de octubre de 2026
-// ------------------------------------------
+//
+// ==========================================
 
 function formatDate(dateValue) {
     const date = parseDate(dateValue);
@@ -124,40 +144,23 @@ function formatDate(dateValue) {
 }
 
 
-// ------------------------------------------
-// Convierte hora a minutos para comparar
-// ------------------------------------------
-
-function timeToMinutes(time) {
-    if (!time) return Number.MAX_SAFE_INTEGER;
-
-    const normalized = normalizeTime(time);
-
-    const match = normalized.match(/^(\d{1,2}):(\d{2})/);
-
-    if (!match) {
-        return Number.MAX_SAFE_INTEGER;
-    }
-
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-
-    return hours * 60 + minutes;
-}
-
-
 // ==========================================
 // CARGAR CLASES DESDE FIRESTORE
 // ==========================================
 
 async function loadClasses() {
+
     try {
+
         if (!schedulesSection) {
+
             console.error(
                 "No se encontró el elemento #class-schedules"
             );
+
             return;
         }
+
 
         schedulesSection.innerHTML = `
             <div class="loading-classes">
@@ -165,188 +168,329 @@ async function loadClasses() {
             </div>
         `;
 
-        /*
-         * IMPORTANTE:
-         *
-         * Ya NO hacemos:
-         *
-         * await syncClassesFunction();
-         *
-         * Las clases se sincronizan automáticamente
-         * desde Google Sheets mediante Firebase Functions.
-         *
-         * Aquí solamente leemos Firestore.
-         */
+
+        // ======================================
+        // LEER FIRESTORE
+        // ======================================
+        //
+        // NO sincronizamos aquí con Google Sheets.
+        //
+        // Firebase Functions se encarga de
+        // sincronizar automáticamente cada 5 minutos.
+        //
+        // ======================================
 
         const snapshot = await getDocs(
             collection(db, "classes")
         );
 
+
         const classes = [];
 
+
         snapshot.forEach((doc) => {
+
             const data = doc.data();
 
-            // Las clases desactivadas no se muestran.
+
+            // ----------------------------------
+            // No mostrar clases desactivadas
+            // ----------------------------------
+
             if (data.activa === false) {
                 return;
             }
 
+
+            // ----------------------------------
+            // Capacidad
+            // ----------------------------------
+
+            let capacity = null;
+
+            if (
+                data.capacity !== null &&
+                data.capacity !== undefined &&
+                data.capacity !== ""
+            ) {
+
+                const parsedCapacity =
+                    Number(data.capacity);
+
+                if (
+                    Number.isFinite(parsedCapacity) &&
+                    parsedCapacity > 0
+                ) {
+                    capacity = parsedCapacity;
+                }
+
+            }
+
+
+            // ----------------------------------
+            // Añadir clase
+            // ----------------------------------
+
             classes.push({
-                id: String(data.id ?? doc.id),
-                title: String(data.title ?? "").trim(),
-                trainer: String(data.trainer ?? "").trim(),
-                date: String(data.date ?? "").trim(),
-                time: String(data.time ?? "").trim(),
-                duration: Number(data.duration ?? 0),
-                capacity:
-                    data.capacity === null ||
-                    data.capacity === undefined ||
-                    data.capacity === ""
-                        ? null
-                        : Number(data.capacity),
+
+                id: String(
+                    data.id ?? doc.id
+                ),
+
+                title: String(
+                    data.title ?? ""
+                ).trim(),
+
+                trainer: String(
+                    data.trainer ?? ""
+                ).trim(),
+
+                date: String(
+                    data.date ?? ""
+                ).trim(),
+
+                time: String(
+                    data.time ?? ""
+                ).trim(),
+
+                duration: Number(
+                    data.duration ?? 0
+                ),
+
+                capacity: capacity,
+
                 description: String(
                     data.description ?? ""
                 ).trim(),
+
                 imageUrl: String(
                     data.imageUrl ?? ""
                 ).trim(),
-                activa: data.activa !== false,
 
-                // NUEVO
+                activa:
+                    data.activa !== false,
+
+                // --------------------------------
+                // NUEVO: TIPO
+                // --------------------------------
+
                 tipo: String(
                     data.tipo ?? ""
                 ).trim(),
 
-                /*
-                 * Este campo viene del backend y representa
-                 * la posición de la fila en Google Sheets.
-                 *
-                 * Así podemos mantener EXACTAMENTE el orden
-                 * del Sheet.
-                 */
+                // --------------------------------
+                // ORDEN DEL GOOGLE SHEET
+                // --------------------------------
+
                 orden:
                     data.orden !== undefined &&
                     data.orden !== null
                         ? Number(data.orden)
                         : Number.MAX_SAFE_INTEGER,
 
+                // --------------------------------
+                // RESERVAS
+                // --------------------------------
+
                 bookedCount: Number(
                     data.bookedCount ?? 0
                 )
+
             });
+
         });
 
 
-        // ==========================================
+        // ======================================
         // ORDEN EXACTO DEL GOOGLE SHEET
-        // ==========================================
+        // ======================================
+        //
+        // El backend guarda "orden" según la
+        // posición de la fila en Google Sheets.
+        //
+        // Por ejemplo:
+        //
+        // 1  ZUMBATÓN
+        // 2  ZUMBATÓN
+        // 3  ZUMBATÓN
+        // 4  CROSSFIT
+        // 5  FUNCIONAL FITNESS
+        //
+        // etc.
+        //
+        // ======================================
 
         classes.sort((a, b) => {
+
             return a.orden - b.orden;
+
         });
 
 
         allClasses = classes;
 
+
         renderSchedules(allClasses);
 
+
     } catch (error) {
+
         console.error(
             "Error cargando las clases:",
             error
         );
 
+
         if (schedulesSection) {
+
             schedulesSection.innerHTML = `
                 <div class="classes-error">
                     No se han podido cargar las clases.
                 </div>
             `;
+
         }
+
     }
+
 }
 
 
 // ==========================================
 // OBTENER HORARIOS
 // ==========================================
+//
+// IMPORTANTE:
+//
+// NO ordenamos los horarios por hora.
+//
+// Se mantienen en el orden en el que aparecen
+// por primera vez en Google Sheets.
+//
+// ==========================================
+
 function getSchedules(classes) {
+
     const schedules = [];
 
+
     classes.forEach((classItem) => {
-        if (!classItem.time) return;
 
-        const normalizedTime = normalizeTime(classItem.time);
+        if (!classItem.time) {
+            return;
+        }
 
-        if (!normalizedTime) return;
+
+        const normalizedTime =
+            normalizeTime(classItem.time);
+
+
+        if (!normalizedTime) {
+            return;
+        }
+
 
         if (!schedules.includes(normalizedTime)) {
-            schedules.push(normalizedTime);
+
+            schedules.push(
+                normalizedTime
+            );
+
         }
+
     });
+
 
     return schedules;
 }
+
 
 // ==========================================
 // RENDERIZAR HORARIOS
 // ==========================================
 
 function renderSchedules(classes) {
-    if (!schedulesSection) return;
+
+    if (!schedulesSection) {
+        return;
+    }
+
 
     schedulesSection.innerHTML = "";
 
-    const schedules = getSchedules(classes);
 
-    const classesWithoutTime = classes.filter(
-        (classItem) => !classItem.time
-    );
+    const schedules =
+        getSchedules(classes);
 
 
-    // ==========================================
+    // ======================================
+    // CLASES SIN HORARIO
+    // ======================================
+
+    const classesWithoutTime =
+        classes.filter((classItem) => {
+
+            return !classItem.time;
+
+        });
+
+
+    // ======================================
     // CABECERA
-    // ==========================================
+    // ======================================
 
-    const heading = document.createElement("div");
+    const heading =
+        document.createElement("div");
 
-    heading.className = "schedule-heading";
+    heading.className =
+        "schedule-heading";
+
 
     heading.innerHTML = `
         <h3>Horarios</h3>
-        <p>Selecciona un horario para ver las actividades disponibles.</p>
+        <p>
+            Selecciona un horario para ver las actividades disponibles.
+        </p>
     `;
 
-    schedulesSection.appendChild(heading);
+
+    schedulesSection.appendChild(
+        heading
+    );
 
 
-    // ==========================================
+    // ======================================
     // CONTENEDOR DE HORARIOS
-    // ==========================================
+    // ======================================
 
     const buttonsContainer =
         document.createElement("div");
 
-    buttonsContainer.className = "schedule-buttons";
+    buttonsContainer.className =
+        "schedule-buttons";
+
 
     schedules.forEach((schedule) => {
 
         const scheduleItem =
             document.createElement("div");
 
-        scheduleItem.className = "schedule-item";
+        scheduleItem.className =
+            "schedule-item";
 
 
-        // ------------------------------------------
-        // Botón del horario
-        // ------------------------------------------
+        // ==================================
+        // BOTÓN
+        // ==================================
 
         const button =
             document.createElement("button");
 
         button.type = "button";
-        button.className = "schedule-button";
+
+        button.className =
+            "schedule-button";
+
 
         button.innerHTML = `
             <span>${schedule}</span>
@@ -356,9 +500,9 @@ function renderSchedules(classes) {
         `;
 
 
-        // ------------------------------------------
-        // Contenido
-        // ------------------------------------------
+        // ==================================
+        // CONTENIDO
+        // ==================================
 
         const content =
             document.createElement("div");
@@ -367,14 +511,18 @@ function renderSchedules(classes) {
             "schedule-item-content";
 
 
-        /*
-         * MUY IMPORTANTE:
-         *
-         * NO hacemos sort aquí.
-         *
-         * Filtramos las clases y conservamos
-         * el orden que ya tienen según "orden".
-         */
+        // ==================================
+        // CLASES DE ESTE HORARIO
+        // ==================================
+        //
+        // NO hacemos ningún sort aquí.
+        //
+        // "classes" ya está ordenado según
+        // el orden de Google Sheets.
+        //
+        // Por tanto, filter() conserva ese orden.
+        //
+        // ==================================
 
         const scheduleClasses =
             classes.filter((classItem) => {
@@ -394,19 +542,24 @@ function renderSchedules(classes) {
         );
 
 
-        // ------------------------------------------
-        // Abrir / cerrar
-        // ------------------------------------------
+        // ==================================
+        // ABRIR / CERRAR
+        // ==================================
 
         button.addEventListener(
             "click",
             () => {
 
                 const isOpen =
-                    content.classList.contains("open");
+                    content.classList.contains(
+                        "open"
+                    );
 
 
-                // Cerramos todos los demás
+                // ------------------------------
+                // Cerrar otros horarios
+                // ------------------------------
+
                 document
                     .querySelectorAll(
                         ".schedule-item-content.open"
@@ -414,9 +567,11 @@ function renderSchedules(classes) {
                     .forEach((element) => {
 
                         if (element !== content) {
+
                             element.classList.remove(
                                 "open"
                             );
+
                         }
 
                     });
@@ -429,13 +584,19 @@ function renderSchedules(classes) {
                     .forEach((element) => {
 
                         if (element !== button) {
+
                             element.classList.remove(
                                 "selected"
                             );
+
                         }
 
                     });
 
+
+                // ------------------------------
+                // Abrir / cerrar actual
+                // ------------------------------
 
                 if (isOpen) {
 
@@ -463,8 +624,14 @@ function renderSchedules(classes) {
         );
 
 
-        scheduleItem.appendChild(button);
-        scheduleItem.appendChild(content);
+        scheduleItem.appendChild(
+            button
+        );
+
+        scheduleItem.appendChild(
+            content
+        );
+
 
         buttonsContainer.appendChild(
             scheduleItem
@@ -478,11 +645,13 @@ function renderSchedules(classes) {
     );
 
 
-    // ==========================================
+    // ======================================
     // ACTIVIDADES SIN HORARIO
-    // ==========================================
+    // ======================================
 
-    if (classesWithoutTime.length > 0) {
+    if (
+        classesWithoutTime.length > 0
+    ) {
 
         const noScheduleWrapper =
             document.createElement("div");
@@ -497,6 +666,7 @@ function renderSchedules(classes) {
         noScheduleTitle.textContent =
             "Información y actividades";
 
+
         noScheduleWrapper.appendChild(
             noScheduleTitle
         );
@@ -509,12 +679,15 @@ function renderSchedules(classes) {
             "class-grid-inner";
 
 
-        /*
-         * Tampoco ordenamos aquí.
-         *
-         * classesWithoutTime conserva el orden
-         * original de "classes".
-         */
+        // ----------------------------------
+        // IMPORTANTE:
+        // ----------------------------------
+        //
+        // No ordenamos.
+        //
+        // Conservamos el orden del Sheet.
+        //
+        // ----------------------------------
 
         classesWithoutTime.forEach(
             (classItem) => {
@@ -531,11 +704,13 @@ function renderSchedules(classes) {
             noScheduleGrid
         );
 
+
         schedulesSection.appendChild(
             noScheduleWrapper
         );
 
     }
+
 }
 
 
@@ -549,6 +724,7 @@ function renderClassesIntoContainer(
 ) {
 
     container.innerHTML = "";
+
 
     if (!classes.length) {
 
@@ -570,12 +746,18 @@ function renderClassesIntoContainer(
         "class-grid-inner";
 
 
-    /*
-     * NO SE ORDENA POR TIPO.
-     *
-     * Se recorren directamente las clases
-     * que vienen ordenadas por "orden".
-     */
+    // ======================================
+    // IMPORTANTE
+    // ======================================
+    //
+    // No se agrupa por TIPO.
+    //
+    // No se ordena por TIPO.
+    //
+    // Se mantiene exactamente el orden
+    // recibido desde Firestore.
+    //
+    // ======================================
 
     classes.forEach((classItem) => {
 
@@ -586,7 +768,10 @@ function renderClassesIntoContainer(
     });
 
 
-    container.appendChild(grid);
+    container.appendChild(
+        grid
+    );
+
 }
 
 
@@ -599,50 +784,62 @@ function createClassCard(classItem) {
     const card =
         document.createElement("article");
 
-    card.className = "class-card";
+    card.className =
+        "class-card";
 
 
-    // ==========================================
+    // ======================================
     // IMAGEN
-    // ==========================================
+    // ======================================
 
     if (classItem.imageUrl) {
 
         const image =
             document.createElement("img");
 
-        image.src = classItem.imageUrl;
+
+        image.src =
+            classItem.imageUrl;
+
 
         image.alt =
             classItem.title ||
             "Actividad";
 
-        image.loading = "lazy";
+
+        image.loading =
+            "lazy";
+
 
         image.onerror = () => {
 
-            image.style.display = "none";
+            image.style.display =
+                "none";
 
         };
 
-        card.appendChild(image);
+
+        card.appendChild(
+            image
+        );
 
     }
 
 
-    // ==========================================
+    // ======================================
     // CUERPO
-    // ==========================================
+    // ======================================
 
     const body =
         document.createElement("div");
 
-    body.className = "card-body";
+    body.className =
+        "card-body";
 
 
-    // ==========================================
+    // ======================================
     // TIPO
-    // ==========================================
+    // ======================================
 
     if (classItem.tipo) {
 
@@ -652,101 +849,130 @@ function createClassCard(classItem) {
         type.className =
             "class-type";
 
+
         type.textContent =
             classItem.tipo;
 
-        body.appendChild(type);
+
+        body.appendChild(
+            type
+        );
 
     }
 
 
-    // ==========================================
+    // ======================================
     // TÍTULO
-    // ==========================================
+    // ======================================
 
     const title =
         document.createElement("h4");
+
 
     title.textContent =
         classItem.title ||
         "Actividad";
 
-    body.appendChild(title);
+
+    body.appendChild(
+        title
+    );
 
 
-    // ==========================================
+    // ======================================
     // CENTRO / ENTRENADOR
-    // ==========================================
+    // ======================================
 
     if (classItem.trainer) {
 
         const trainer =
             document.createElement("div");
 
+
         trainer.className =
             "class-trainer";
+
 
         trainer.textContent =
             classItem.trainer;
 
-        body.appendChild(trainer);
+
+        body.appendChild(
+            trainer
+        );
 
     }
 
 
-    // ==========================================
+    // ======================================
     // FECHA
-    // ==========================================
+    // ======================================
 
     if (classItem.date) {
 
         const date =
             document.createElement("div");
 
+
         date.className =
             "class-date";
 
-        date.textContent =
-            formatDate(classItem.date);
 
-        body.appendChild(date);
+        date.textContent =
+            formatDate(
+                classItem.date
+            );
+
+
+        body.appendChild(
+            date
+        );
 
     }
 
 
-    // ==========================================
+    // ======================================
     // DESCRIPCIÓN
-    // ==========================================
+    // ======================================
 
     if (classItem.description) {
 
         const description =
             document.createElement("div");
 
+
         description.className =
             "class-description";
+
 
         description.textContent =
             classItem.description;
 
-        body.appendChild(description);
+
+        body.appendChild(
+            description
+        );
 
     }
 
 
-    // ==========================================
+    // ======================================
     // INFORMACIÓN DE PLAZAS
-    // ==========================================
+    // ======================================
 
     const capacity =
         document.createElement("div");
+
 
     capacity.className =
         "class-capacity";
 
 
     const numericCapacity =
-        Number(classItem.capacity);
+        Number(
+            classItem.capacity
+        );
+
 
     const hasLimitedCapacity =
         Number.isFinite(
@@ -762,9 +988,11 @@ function createClassCard(classItem) {
                 classItem.bookedCount || 0
             );
 
+
         const remaining =
             Math.max(
-                numericCapacity - bookedCount,
+                numericCapacity -
+                bookedCount,
                 0
             );
 
@@ -773,6 +1001,7 @@ function createClassCard(classItem) {
 
             capacity.textContent =
                 "Clase completa";
+
 
             capacity.classList.add(
                 "full"
@@ -791,21 +1020,29 @@ function createClassCard(classItem) {
 
     } else {
 
+        // Capacidad vacía o texto como
+        // "PARA LOS ALLÍ PRESENTES"
+        //
+        // = plazas no limitadas
+
         capacity.textContent =
             "Plazas disponibles";
 
     }
 
 
-    body.appendChild(capacity);
+    body.appendChild(
+        capacity
+    );
 
 
-    // ==========================================
+    // ======================================
     // BOTÓN
-    // ==========================================
+    // ======================================
 
     const actions =
         document.createElement("div");
+
 
     actions.className =
         "card-actions";
@@ -814,43 +1051,43 @@ function createClassCard(classItem) {
     const button =
         document.createElement("button");
 
-    button.type = "button";
+
+    button.type =
+        "button";
+
 
     button.className =
         "reserve-class-button";
+
 
     button.textContent =
         "Reservar";
 
 
-    // ------------------------------------------
-    // Comprobar si está llena
-    // ------------------------------------------
+    // ======================================
+    // COMPROBAR SI ESTÁ COMPLETA
+    // ======================================
 
     const bookedCount =
         Number(
             classItem.bookedCount || 0
         );
 
-    const hasLimitedCapacity =
-        Number.isFinite(
-            Number(classItem.capacity)
-        ) &&
-        Number(classItem.capacity) > 0;
 
     const isFull =
         hasLimitedCapacity &&
-        bookedCount >= Number(
-            classItem.capacity
-        );
+        bookedCount >= numericCapacity;
 
 
     if (isFull) {
 
-        button.disabled = true;
+        button.disabled =
+            true;
+
 
         button.textContent =
             "Completa";
+
 
         button.classList.add(
             "disabled"
@@ -859,9 +1096,9 @@ function createClassCard(classItem) {
     }
 
 
-    // ------------------------------------------
-    // Reservar
-    // ------------------------------------------
+    // ======================================
+    // RESERVAR
+    // ======================================
 
     button.addEventListener(
         "click",
@@ -871,6 +1108,7 @@ function createClassCard(classItem) {
                 return;
             }
 
+
             goToReservation(
                 classItem
             );
@@ -879,14 +1117,23 @@ function createClassCard(classItem) {
     );
 
 
-    actions.appendChild(button);
+    actions.appendChild(
+        button
+    );
 
-    body.appendChild(actions);
 
-    card.appendChild(body);
+    body.appendChild(
+        actions
+    );
+
+
+    card.appendChild(
+        body
+    );
 
 
     return card;
+
 }
 
 
@@ -906,11 +1153,9 @@ function goToReservation(classItem) {
     );
 
 
-    /*
-     * Guardamos también los datos básicos
-     * para que reservar.js pueda utilizarlos
-     * si los necesita.
-     */
+    // ======================================
+    // DATOS ADICIONALES
+    // ======================================
 
     if (classItem.title) {
 
@@ -921,6 +1166,7 @@ function goToReservation(classItem) {
 
     }
 
+
     if (classItem.date) {
 
         params.set(
@@ -929,6 +1175,7 @@ function goToReservation(classItem) {
         );
 
     }
+
 
     if (classItem.time) {
 
@@ -940,8 +1187,13 @@ function goToReservation(classItem) {
     }
 
 
+    // ======================================
+    // IR A LA PÁGINA DE RESERVA
+    // ======================================
+
     window.location.href =
         `/reservar?${params.toString()}`;
+
 }
 
 
