@@ -41,7 +41,8 @@ function getFirebaseErrorMessage(error) {
                 "El número de entrada o el correo electrónico ya está asociado a otra reserva.";
 
         case "functions/resource-exhausted":
-            return "Esta clase está completa o has alcanzado el límite de reservas permitido.";
+            return error.message ||
+                "No se puede realizar la reserva en este momento.";
 
         case "functions/failed-precondition":
             return error.message ||
