@@ -173,10 +173,9 @@ async function loadClasses() {
         //
         // ======================================
 
-        const snapshot = await db
-            .collection("classes")
-            .orderBy("orden", "asc")
-            .get();
+        const snapshot = await getDocs(
+            collection(db, "classes")
+        );
 
 
         const classes = [];
